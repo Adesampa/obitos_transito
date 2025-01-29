@@ -1,11 +1,30 @@
 ---
-title: "Untitled"
-output: html_document
-date: "2025-01-28"
+title: Análise das Mortes no Trânsito 
+author: "Município de São Paulo"
+date: "`r format(Sys.Date(), format='%d/%m/%Y')`"
+output:
+    html_document:
+      theme: flatly
+      self-contained: yes
+      toc: yes
+      toc_float: yes
+      css: 
+        - style.css
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
+
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+(knitr::opts_chunk$set(
+	echo = FALSE,
+	error = FALSE,
+	message = FALSE,
+	warning = FALSE
+ )
+) 
 ```
 
 
@@ -37,14 +56,254 @@ library('rmdformats')
 library("janitor")
 library("reactablefmtr")
 library("corrplot")
+library("lubridate")
+library("janitor")
+library("ggmap")
+library("stringr")
+library("stringi")
+library("ggthemes")
+library("ggiraph")
+library("patchwork")
+library("showtext")
 
 ```
 
 
-```{r}
 
-file1 <- "https://raw.githubusercontent.com/Adesampa/obitos_transito/refs/heads/main/obitos.csv?token=GHSAT0AAAAAAC5MKS6WWNKIKJIVXJ324CTCZ4ZIJGQ"
-dados <- read_delim(file1, delim = ",", 
-                        locale = locale(encoding='UTF-8'))
+```{r include=FALSE}
+
+# dowwnload dos dados do infosiga (https://www.infosiga.sp.gov.br/)
+
+
+dados <- st_read("C:/Users/Thais Pereira/Documents/obitos_transito/obitos.csv")
+
+shp_distritos <- st_read("C:/Users/Thais Pereira/Documents/shapefile/distritos_cnpj_2.shp")
 
 ```
+
+```{r include=FALSE}
+
+# Adicionar a fonte do Google Fonts
+font_add_google("Lora", "Lora")
+
+# Ativar suporte a fontes no ggplot
+showtext_auto()
+
+```
+
+
+## **Introdução**
+
+
+
+## **Análise Descritiva**
+
+
+## 1. Mapa por distrito de todas as mortes do município
+
+```{r include=FALSE}
+
+# Import Sao Paulo shapefile
+sp_border <- geobr::read_municipality(3550308, showProgress = FALSE)
+
+# preparando a tabela
+
+dados %>% 
+  clean_names() %>% 
+  mutate(Indice = as.character(row_number())) %>% 
+  group_by( )
+
+dados_1 <- dados %>% 
+  filter(!is.na(ds_nome))
+
+```
+
+
+
+```{r include=FALSE}
+
+dados_1 <- dados %>% 
+  filter(!is.na(ds_nome)) %>% 
+  clean_names() %>% 
+  group_by(ds_nome) %>% 
+  tally() %>% 
+  mutate(ds_nome = str_to_title(ds_nome)) %>% 
+  mutate(pct = n/sum(n)*100)
+
+# Transformar em coordenadas geográficas
+shp_distritos <- st_transform(shp_distritos, crs = 4326)
+
+shp_distritos <- shp_distritos %>% rename(ds_nome = NOME_DIST)
+
+shp_distritos_1 <- shp_distritos %>% mutate(
+    Indice = as.character(row_number()),
+    ds_nome = str_trim(ds_nome),  
+    ds_nome = stri_trans_general(ds_nome, "Latin-ASCII"), 
+    ds_nome = str_to_title(ds_nome)  
+  ) %>% 
+  mutate(
+    ds_nome = case_when(
+      ds_nome == "Agua Rasa\n" ~ "Agua Rasa",
+      ds_nome == "Alto De Pinheiros\n" ~ "Alto De Pinheiros",
+      ds_nome == "Anhanguera\n" ~ "Anhanguera",
+      TRUE ~ ds_nome
+    )
+  )
+
+shp_distritos_2 <- shp_distritos_1 %>%
+  left_join(dados_1, by = "ds_nome")
+
+
+```
+
+
+
+```{r echo=FALSE, out.width = "100%"}
+
+# Criar categorias de óbitos
+shp_distritos_3 <- shp_distritos_2 %>%
+  mutate(group_n = cut(n, breaks = c(0, 50, 100, 150, 200, 250), include.lowest = TRUE))
+
+# Criar categorias para o gráfico lateral
+pop_n <- shp_distritos_3 %>%
+  st_drop_geometry() %>%
+  group_by(group_n) %>%
+  summarise(score = sum(n, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(
+    share = score / sum(score) * 100,
+    y_text = if_else(share < 5, share + 3, share - 3),
+    label = paste0(round(share, 1), "%"),
+    data_id = as.character(group_n)
+  ) %>%
+  na.omit()
+
+
+# Criar o mapa com os distritos de São Paulo e os óbitos
+pmap <- ggplot(shp_distritos_3) +
+  geom_sf_interactive(aes(fill = n, geometry = geometry, 
+                          data_id = group_n, 
+                          tooltip = paste(ds_nome, "<br>Óbitos:", n)),  # Nome + Óbitos
+                      lwd = 0.1, color = "white") +
+  scale_fill_fermenter(
+    name = "Óbitos",
+    breaks = c(50, 100, 150, 200, 250),
+    direction = 1,
+    palette = "Reds"
+  ) +
+  labs(
+    title = "",
+    subtitle = "",
+    caption = "Fonte: Infosiga"
+  ) +
+  theme_map() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(size = 14, hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) + 
+  guides(fill = "none")
+
+# Criar o gráfico de barras laterais com os percentuais
+x_labels <- c("0-50", "51-100", "101-150", "151-200", "201-250+")
+
+pcol <- ggplot(pop_n, aes(group_n, share, fill = group_n)) +
+  geom_col_interactive(aes(data_id = data_id, tooltip = paste("Share:", label))) +
+  geom_hline(yintercept = 0) +
+    geom_text_interactive(
+    aes(
+      y = pmin(share + 5, max(share) - 2),  # Impede que o texto saia do gráfico
+      label = label, 
+      color = case_when(
+        group_n == "201-250+" ~ "black",  # Apenas essa categoria ficará preta
+        TRUE ~ "white"
+      ), 
+      data_id = data_id
+    ),
+    size = 2.5, 
+    hjust = -0.1 # Mantém os textos afastados para a direita
+  ) +
+  coord_flip() +
+  scale_x_discrete(labels = x_labels) +
+  scale_fill_brewer(palette = "Reds") +
+  scale_color_manual(values = c(rep("black", 4), "white")) +
+  guides(fill = "none", color = "none") +
+  labs(
+    title = "",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_void() +
+  theme(
+    panel.grid = element_blank(),
+    plot.title = element_text(size = 12),
+    axis.text.y = element_text(size = 7),
+    axis.text.x = element_blank(),
+    aspect.ratio = 1.5
+  )
+
+pcol <- pcol + expand_limits(y = max(pop_n$share) + 10)
+
+# Aplicar ao gráfico
+pmap <- pmap + theme(
+  text = element_text(family = "Lora"),
+  axis.text = element_text(family = "Lora"),
+  legend.text = element_text(family = "Lora"),
+  legend.title = element_text(family = "Lora")) +
+  coord_sf(expand = FALSE) +  # Evita cortes no mapa
+  theme_void() 
+
+
+# Combinar o mapa e o gráfico de barras laterais
+p_final <- pmap + inset_element(pcol, left = 0.5, bottom = 0, right = 1, top = 0.5)
+
+# Criar um gráfico interativo com ggiraph
+interactive_plot <- girafe(
+  ggobj = p_final,
+  options = list(
+    opts_hover(css = "fill:gray;"),
+    opts_hover_inv(css = "opacity:0.5;"),
+    opts_selection(type = "single", only_shiny = FALSE)
+  )
+)
+
+# Salvar como HTML interativo
+htmltools::save_html(interactive_plot, "mapa_interativo.html")
+
+# Exibir o gráfico no RStudio Viewer
+interactive_plot
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
