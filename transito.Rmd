@@ -1,6 +1,6 @@
 ---
-title: Análise das Mortes no Trânsito 
-author: "Município de São Paulo"
+title: Análise das Mortes no Trânsito no Município de São Paulo
+author: "Agência São Paulo de Desenvolvimento - ADE SAMPA"
 date: "`r format(Sys.Date(), format='%d/%m/%Y')`"
 output:
     html_document:
@@ -89,35 +89,33 @@ font_add_google("Lora", "Lora")
 # Ativar suporte a fontes no ggplot
 showtext_auto()
 
+
 ```
 
+## **Resumo**
+
+
+Esse relatório proprõe uma análise geoespacial detalhada dos dados de mortes no transito no município de São Paulo entre os anos de 2015 e 2024, a partir dos dados disponibilizados pelo INFOSIGA SP - Sistema de Informações Gerenciais de Acidentes de Trânsito do Estado de São Paulo. Pretendemos contribuir com uma análise que identifica um perfil da população vitimada pelos acidentes além de situações e modais de risco para cada distrito da cidade. Pretendemos contribuir com o desenvolvimento de políticas públicas baseadas em evidências das especificidades de cada região da cidade de São Paulo. 
 
 ## **Introdução**
 
+Lançado em 2015, o INFOSIGA faz parte de um conjunto de iniciativas do Movimento Paulista de Segurança no Trânsito, lançado pelo Governo do estado de São Paulo em agosto de 2015, que tinha por objetivo reduzir pela metade as vítimas fatais em acidentes de trânsito até 2020. A meta estadual estava na época, inspirada pela resolução de março de 2010 da Assembleia-Geral das Nações Unidas, definida como “Primeira década de ação pela segurança no trânsito". A campanha tinha por objetivo conscientizar os países a adotarem medidas visando a diminuição dos números de mortalidade no trânsito, e de fato mobilizou as autoridades de diversos países, a do Brasil inclusive, que se posicionou como país signatário da iniciativa, com engajamentos diversificados por parte dos gestores de transito. Ao final da primeira década a ONU lançou em 2021 a “segunda década de ação pela segurança no trânsito” incentivando os países a estipularem novas metas para 2030. 
+
+A situação é complicada no mundo todo, segundo dados da OMS de 2022, 1,3 milhão de pessoas morrem anualmente em acidentes de trânsito, o que supera em número de mortos doenças como o HIV/AIDS, tuberculose e doenças diarreicas, sendo esta a 8ª causa do maior número de mortes no mundo (WHO, 2018).
+
+Em termos proporcionais à população, o Brasil tem dados alarmantes, o número de mortos por 100 mil habitantes anualmente é cerca de dez vezes maior que nos países mais seguros (IPEA, 2006, 2015), e na época do lançamento da primeira campanha da ONU eramos o quinto pais com mais mortes no transito no mundo, gerando um custo anual de cerca de de R$ 50 bilhões a preços atuais (IPEA, 2023).   
+
+O INFOSIGA surge como uma ferramenta que possibilita a transparência das informações e o subsídio ao desenvolvimento de políticas públicas de prevenção baseado em evidências. Os dados dispobilizados mensalmente são baseados na sistematização de boletins de ocorrência da Polícia Civil do Estado de São Paulo, para o cálculo das estatísticas relativas a óbitos no transito, além dos dados que serão analisados neste relatório a plataforma INFOSIGA também disponibiliza informações de acidentes de transito com vítimas, utilizando os dados recebidos pela Polícia Militar e Polícia Rodoviária Federal.
+
+No âmbito nacional a Lei Federal nº 13.614/18 assinada em 11 de janeiro de 2018 criou o Plano Nacional de Redução de Mortes e Lesões no Trânsito (Pnatrans), com uma série de diretrizes que visam a diminuição de mortes e lesões causadas por acidentes de trânsito. O principal objetivo é diminuir a proporção de mortos em relação à população e em relação ao número de veículos de uma localidade num prazo de dez anos. 
+
+Tendo em vista a demonstração de preocupação por parte das autoridades federais e estatuais no que diz respeito às mortes no transito, propomos primeiramente uma análise geral da situação dos óbitos nos distritos da cidade de São Paulo, depois uma análise temporal para identificarmos mudanças e tendências gerais e por último uma análise geoespacial detalhada da população, modais de risco para cada uma dessas regiões da cidade de São Paulo, buscando sistematizar informações que podem direcionar a tomada de decisão do poder público.  
 
 
-## **Análise Descritiva**
+## **Estatísticas Gerais**
 
 
 ## 1. Mapa por distrito de todas as mortes do município
-
-```{r include=FALSE}
-
-# Import Sao Paulo shapefile
-sp_border <- geobr::read_municipality(3550308, showProgress = FALSE)
-
-# preparando a tabela
-
-dados %>% 
-  clean_names() %>% 
-  mutate(Indice = as.character(row_number())) %>% 
-  group_by( )
-
-dados_1 <- dados %>% 
-  filter(!is.na(ds_nome))
-
-```
-
 
 
 ```{r include=FALSE}
@@ -158,7 +156,7 @@ shp_distritos_2 <- shp_distritos_1 %>%
 
 
 
-```{r echo=FALSE, out.width = "100%"}
+```{r echo=FALSE, fig.width=11, fig.height=9, out.width="100%"}
 
 # Criar categorias de óbitos
 shp_distritos_3 <- shp_distritos_2 %>%
@@ -220,7 +218,7 @@ pcol <- ggplot(pop_n, aes(group_n, share, fill = group_n)) +
       ), 
       data_id = data_id
     ),
-    size = 2.5, 
+    size = 4, 
     hjust = -0.1 # Mantém os textos afastados para a direita
   ) +
   coord_flip() +
@@ -236,13 +234,13 @@ pcol <- ggplot(pop_n, aes(group_n, share, fill = group_n)) +
   theme_void() +
   theme(
     panel.grid = element_blank(),
-    plot.title = element_text(size = 12),
-    axis.text.y = element_text(size = 7),
+    plot.title = element_text(size = 18),
+    axis.text.y = element_text(size = 10),
     axis.text.x = element_blank(),
     aspect.ratio = 1.5
   )
 
-pcol <- pcol + expand_limits(y = max(pop_n$share) + 10)
+pcol <- pcol + expand_limits(y = max(pop_n$share) + 18)
 
 # Aplicar ao gráfico
 pmap <- pmap + theme(
@@ -261,7 +259,7 @@ p_final <- pmap + inset_element(pcol, left = 0.5, bottom = 0, right = 1, top = 0
 interactive_plot <- girafe(
   ggobj = p_final,
   options = list(
-    opts_hover(css = "fill:gray;"),
+    opts_hover(css = "fill:#f58d17;"),
     opts_hover_inv(css = "opacity:0.5;"),
     opts_selection(type = "single", only_shiny = FALSE)
   )
@@ -277,23 +275,19 @@ interactive_plot
 
 
 
+## **Quantidade de mortes ao longo do Tempo**
 
 
+## **Análise Socio econômica**
 
 
+## **Análise por Distrito**
 
 
+## **Considerações Finais**
 
 
-
-
-
-
-
-
-
-
-
+## **Referências**
 
 
 
