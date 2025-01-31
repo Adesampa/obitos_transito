@@ -65,6 +65,13 @@ library("ggthemes")
 library("ggiraph")
 library("patchwork")
 library("showtext")
+library("htmltools")
+library("gganimate")
+library("gifski")
+library("av")
+library("scales")
+library("png")
+library("magick")
 
 ```
 
@@ -75,9 +82,11 @@ library("showtext")
 # dowwnload dos dados do infosiga (https://www.infosiga.sp.gov.br/)
 
 
-dados <- st_read("C:/Users/Thais Pereira/Documents/obitos_transito/obitos.csv")
+dados <- read.csv("C:/Users/Thais Pereira/Documents/obitos_transito/obitos.csv")
 
 shp_distritos <- st_read("C:/Users/Thais Pereira/Documents/shapefile/distritos_cnpj_2.shp")
+
+pop <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/pop.xlsx")
 
 ```
 
@@ -115,18 +124,26 @@ Tendo em vista a demonstração de preocupação por parte das autoridades feder
 ## **Estatísticas Gerais**
 
 
-## 1. Mapa por distrito de todas as mortes do município
+## 1. Mapas das mortes por distritos 
+
+Os mapas apresentados abaixo mostram a distribuição das mortes no trânsito na cidade de São Paulo, destacando tanto os números absolutos quanto a taxa de óbitos por 100 mil habitantes. Tendo como base que segundo o IBGE São Paulo contava em 2022 com 11.451.999 habitantes, e entre 2015 e 2024 a cidade somou um total de **9.216** mortes no trânsito, temos uma taxa geral de **80,5** mortes para cada 100 mil habitantes. Em termos absolutos, os distritos com maior número de óbitos foram Jardim **Jardim Sao Luis (231)**, **Grajaú (229)** e **Cidade Dutra (196)**, enquanto os que registraram menos mortes foram **Marsilac (4)**, **Perdizes (21)** e **Bela Vista (26)**. Quando analisamos os piores distritos em termos de taxa de mortalidade proporcional à população, os destaques negativos são **Sé (314 mortes por 100 mil habitantes)**, **Jaraguá (287)** e **Butantã (201)**, enquanto os distritos com menor impacto proporcional foram **Perdizes (20)**, **Jardim Helena (27)** e **Cidade Líder (33)**. Um adenso a utilização da base de dados do Infogsiga é que para 983 mortes não foi possível encontrar o distrito de acontecimento do acidente, ou por falta de informações de latitude e longitude ou por imprecisão do dado, no entanto somamos esse caso para as estatísticas gerais. 
+
 
 
 ```{r include=FALSE}
 
 dados_1 <- dados %>% 
+  mutate(Data.do.Sinistro = dmy(Data.do.Sinistro),  
+  Ano = year(Data.do.Sinistro)) %>% 
   filter(!is.na(ds_nome)) %>% 
+  filter(Ano != 2012 & Ano != 2013 & Ano !=  2014 & Ano !=  2010 & Ano !=  1995 &  Ano !=  1986 & Ano !=  2000 & Ano !=  2009 & Ano !=  2011) %>% 
   clean_names() %>% 
   group_by(ds_nome) %>% 
   tally() %>% 
   mutate(ds_nome = str_to_title(ds_nome)) %>% 
-  mutate(pct = n/sum(n)*100)
+  left_join(pop, by = "ds_nome") %>% 
+  mutate(pct = n/sum(n)*100) %>% 
+  mutate(mortes_cem_mil_hab = n/pop*100000)
 
 # Transformar em coordenadas geográficas
 shp_distritos <- st_transform(shp_distritos, crs = 4326)
@@ -156,7 +173,9 @@ shp_distritos_2 <- shp_distritos_1 %>%
 
 
 
-```{r echo=FALSE, fig.width=11, fig.height=9, out.width="100%"}
+```{r fig.height=9, fig.width=11, include=FALSE, out.width="100%"}
+
+theme_update(plot.title = element_text(size = 24, face = "bold", hjust = 0.5, family = "Lora"))
 
 # Criar categorias de óbitos
 shp_distritos_3 <- shp_distritos_2 %>%
@@ -192,13 +211,13 @@ pmap <- ggplot(shp_distritos_3) +
   labs(
     title = "",
     subtitle = "",
-    caption = "Fonte: Infosiga"
+    caption = ""
   ) +
   theme_map() +
   theme(
     legend.position = "right",
-    plot.title = element_text(size = 14, hjust = 0.5),
-    plot.subtitle = element_text(hjust = 0.5)
+    plot.title = element_text(size = rel(2), hjust = 0.5, family = "Lora"),
+    plot.caption = element_text(size = 25, hjust = 0.5, family = "Lora")
   ) + 
   guides(fill = "none")
 
@@ -218,7 +237,7 @@ pcol <- ggplot(pop_n, aes(group_n, share, fill = group_n)) +
       ), 
       data_id = data_id
     ),
-    size = 4, 
+    size = 8, 
     hjust = -0.1 # Mantém os textos afastados para a direita
   ) +
   coord_flip() +
@@ -235,12 +254,12 @@ pcol <- ggplot(pop_n, aes(group_n, share, fill = group_n)) +
   theme(
     panel.grid = element_blank(),
     plot.title = element_text(size = 18),
-    axis.text.y = element_text(size = 10),
+    axis.text.y = element_text(size = 20),
     axis.text.x = element_blank(),
     aspect.ratio = 1.5
   )
 
-pcol <- pcol + expand_limits(y = max(pop_n$share) + 18)
+pcol <- pcol + expand_limits(y = max(pop_n$share) + 30)
 
 # Aplicar ao gráfico
 pmap <- pmap + theme(
@@ -249,7 +268,12 @@ pmap <- pmap + theme(
   legend.text = element_text(family = "Lora"),
   legend.title = element_text(family = "Lora")) +
   coord_sf(expand = FALSE) +  # Evita cortes no mapa
-  theme_void() 
+  theme_void() +
+    annotate("text", 
+           x = mean(st_bbox(shp_distritos_3)[c("xmin", "xmax")]),  # Centraliza no eixo X
+           y = st_bbox(shp_distritos_3)["ymax"] + 0.05 * diff(st_bbox(shp_distritos_3)[c("ymin", "ymax")]),  # Move para cima
+           label = "Total absoluto de mortes",
+           hjust = 0.5, vjust = 1, size = 12, fontface = "bold", family = "Lora")
 
 
 # Combinar o mapa e o gráfico de barras laterais
@@ -258,6 +282,8 @@ p_final <- pmap + inset_element(pcol, left = 0.5, bottom = 0, right = 1, top = 0
 # Criar um gráfico interativo com ggiraph
 interactive_plot <- girafe(
   ggobj = p_final,
+  width_svg = 14,   # Aumenta a largura do gráfico lateral
+  height_svg = 12,
   options = list(
     opts_hover(css = "fill:#f58d17;"),
     opts_hover_inv(css = "opacity:0.5;"),
@@ -265,17 +291,231 @@ interactive_plot <- girafe(
   )
 )
 
-# Salvar como HTML interativo
-htmltools::save_html(interactive_plot, "mapa_interativo.html")
-
-# Exibir o gráfico no RStudio Viewer
-interactive_plot
 
 ```
 
 
 
+
+```{r fig.height=9, fig.width=11, include=FALSE, out.width="100%"}
+
+theme_update(plot.title = element_text(size = 24, face = "bold", hjust = 0.5, family = "Lora"))
+
+shp_distritos_3 <- shp_distritos_2 %>%
+  mutate(group_mortes = cut(mortes_cem_mil_hab, 
+                            breaks = quantile(mortes_cem_mil_hab, probs = seq(0, 1, 0.2), na.rm = TRUE), 
+                            include.lowest = TRUE))
+
+
+# Criar categorias para o gráfico lateral (percentual de distritos por faixa)
+pop_mortes <- shp_distritos_3 %>%
+  st_drop_geometry() %>%
+  group_by(group_mortes) %>%
+  summarise(score = sum(mortes_cem_mil_hab, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(
+    share = score / sum(score) * 100,
+    y_text = if_else(share < 5, share + 3, share - 3),
+    label = paste0(round(share, 1), "%"),
+    data_id = as.character(group_mortes)
+  ) %>%
+  na.omit()
+
+# Criar o mapa com os distritos de São Paulo e a taxa de óbitos
+pmap <- ggplot(shp_distritos_3) +
+  geom_sf_interactive(aes(fill = mortes_cem_mil_hab, geometry = geometry, 
+                          data_id = group_mortes, 
+                          tooltip = paste(ds_nome, "<br>Óbitos por 100k:", round(mortes_cem_mil_hab, 1))), 
+                      lwd = 0.1, color = "white") +
+  scale_fill_fermenter(
+    name = "Óbitos por 100k",
+    breaks = quantile(shp_distritos_3$mortes_cem_mil_hab, probs = seq(0, 1, 0.2), na.rm = TRUE),
+    direction = 1,
+    palette = "Reds"
+  ) +
+  labs(
+    title = "",
+    subtitle = "",
+    caption = ""
+  ) +
+  theme_map() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(size = rel(2), hjust = 0.5, family = "Lora"),
+    plot.caption = element_text(size = 25, hjust = 0.5, family = "Lora")
+  ) + 
+  guides(fill = "none")
+
+# Criar o gráfico de barras laterais com os percentuais de distritos por taxa de óbitos
+x_labels <- c("Baixo", "Médio-Baixo", "Médio", "Médio-Alto", "Alto")
+
+pcol <- ggplot(pop_mortes, aes(group_mortes, share, fill = group_mortes)) +
+  geom_col_interactive(aes(data_id = data_id, tooltip = paste("Share:", label))) +
+  geom_hline(yintercept = 0) +
+  geom_text_interactive(
+  aes(
+    y = pmin(share + 5, max(share) - 2),  
+    label = paste0(round(share, 1), "%"),  
+    color = case_when(
+      as.character(group_mortes) == max(as.character(group_mortes)) ~ "black",  # Converte para caractere
+      TRUE ~ "white"
+    ), 
+    data_id = data_id
+  ),
+  size = 8, 
+  hjust = -0.1 
+) +
+  coord_flip() +
+  scale_x_discrete(labels = x_labels) +
+  scale_fill_brewer(palette = "Reds") +
+  scale_color_manual(values = c(rep("black", 4), "white")) +
+  guides(fill = "none", color = "none") +
+  labs(
+    title = "",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_void() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.y = element_text(size = 20),
+    axis.text.x = element_blank(),
+    aspect.ratio = 1.5
+  )
+
+pcol <- pcol + expand_limits(y = max(pop_mortes$share) + 30)
+
+# Aplicar ao gráfico a fonte 'Lora' e evitar cortes
+pmap <- pmap + theme(
+  text = element_text(family = "Lora"),
+  axis.text = element_text(family = "Lora"),
+  legend.text = element_text(family = "Lora"),
+  legend.title = element_text(family = "Lora")
+) + coord_sf(expand = FALSE) + theme_void() +
+  annotate("text", 
+           x = mean(st_bbox(shp_distritos_3)[c("xmin", "xmax")]),  # Centraliza no eixo X
+           y = st_bbox(shp_distritos_3)["ymax"] + 0.05 * diff(st_bbox(shp_distritos_3)[c("ymin", "ymax")]),  # Move para cima
+           label = "Taxa de mortes por 100k hab.",
+           hjust = 0.5, vjust = 1, size = 12, fontface = "bold", family = "Lora")
+
+
+# Combinar o mapa e o gráfico de barras laterais
+p_final <- pmap + inset_element(pcol, left = 0.5, bottom = 0, right = 1, top = 0.5)
+
+
+# Criar um gráfico interativo com ggiraph
+interactive_plot_2 <- girafe(
+  ggobj = p_final,
+  width_svg = 14,   # Aumenta a largura do gráfico lateral
+  height_svg = 12,   # Aumenta a altura do gráfico lateral
+  options = list(
+    opts_hover(css = "fill:#f58d17;"),
+    opts_hover_inv(css = "opacity:0.5;"),
+    opts_selection(type = "single", only_shiny = FALSE)
+  )
+)
+
+
+```
+
+
+```{r, echo=FALSE, fig.height= 14, fig.width=16, out.width="100%", results="asis"}
+library(htmltools)
+
+# Criar layout flexível para exibir os gráficos lado a lado
+htmltools::browsable(
+  tags$div(
+    style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
+    
+    # Mapa interativo (primeiro gráfico)
+    tags$div(style = "width: 50%;", interactive_plot),  
+    
+    # Gráfico lateral interativo (segundo gráfico)
+    tags$div(style = "width: 50%;", interactive_plot_2)  
+  )
+)
+
+
+
+```
+
+```{r include=FALSE}
+
+# taxa de óbitos por 100k hab. e total de óbitos absolutos
+
+dados %>% 
+  mutate(Data.do.Sinistro = dmy(Data.do.Sinistro),  
+  Ano = year(Data.do.Sinistro)) %>% 
+  filter(Ano != 2012 & Ano != 2013 & Ano !=  2014 & Ano !=  2010 & Ano !=  1995 &  Ano !=  1986 & Ano !=  2000 & Ano !=  2009 & Ano !=  2011) %>% 
+  clean_names() %>% 
+  group_by(ds_nome) %>% 
+  tally() %>% 
+  mutate(ds_nome = str_to_title(ds_nome)) %>% 
+  left_join(pop, by = "ds_nome") %>% 
+  summarise(
+    total_obitos = sum(n, na.rm = TRUE),
+    total_populacao = sum(pop, na.rm = TRUE),  
+    taxa_obitos = (sum(n, na.rm = TRUE) / sum(pop, na.rm = TRUE)) * 100000
+  )
+
+dados_1 %>% arrange(-n)
+
+```
+
+
 ## **Quantidade de mortes ao longo do Tempo**
+
+
+```{r echo=FALSE}
+
+options(bitmapType = "cairo")
+
+# Adicionar a fonte Lora
+font_add_google("Lora", "Lora")
+showtext_auto()
+
+# Criar o gráfico animado
+primeiro_gif <- dados %>% 
+  mutate(Data.do.Sinistro = dmy(Data.do.Sinistro),  
+         Ano = as.numeric(year(Data.do.Sinistro))) %>%  # 🔹 Garante que Ano é numérico
+  filter(!Ano %in% c(2012, 2013, 2014, 2010, 1995, 1986, 2000, 2009, 2011)) %>%  # 🔹 Remove anos indesejados
+  group_by(Ano) %>% 
+  tally() %>% 
+  ggplot(aes(x = Ano, y = n)) +  
+  geom_point(color = "#2F58A4", size = 5, alpha = 0.5) +  
+  labs(title = "Evolução das Mortes no Trânsito",
+       x = "",
+       y = "") +
+#  scale_x_continuous(breaks = Ano, labels = as.character(Ano))+  # 🔹 Remove ".0" dos anos
+  theme_minimal() +
+  scale_x_continuous(breaks=seq(2015,2024,1)) +
+  theme(plot.title = element_text(family = "Lora", size = 16, face = "bold", hjust = 0.5, colour = "black"),
+        text = element_text(family = "Lora"),
+        axis.text = element_text(size = 11),
+        axis.text.x = element_text(size = 10),
+        legend.text = element_text(size = 10, face = "bold"),
+        legend.title = element_text(size = 10, face = "bold"),
+        legend.position = "bottom") +
+  transition_reveal(Ano) +  
+  shadow_trail()
+
+png(filename = "temp.png", width = 600, height = 400)
+dev.off()
+
+# Gerar a animação
+animate(
+    plot = primeiro_gif,
+    renderer = gifski_renderer(),
+    height = 400,
+    width = 600, 
+    duration = 10
+)
+
+
+
+```
+
+
 
 
 ## **Análise Socio econômica**
