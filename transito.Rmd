@@ -3,20 +3,23 @@ title: Análise das Mortes no Trânsito no Município de São Paulo
 author: "Agência São Paulo de Desenvolvimento - ADE SAMPA"
 date: "`r format(Sys.Date(), format='%d/%m/%Y')`"
 output:
-    html_document:
+    html_document: 
       theme: flatly
-      self-contained: yes
-      toc: yes
-      toc_float: yes
-      css: 
-        - style.css
+      self-contained: true
+      toc: true
+      toc_float: true
+      css: style.css
 editor_options: 
   markdown: 
     wrap: 72
+  chunk_output_type: inline
 ---
 
 
 ```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(global.par = TRUE)
+knitr::opts_knit$set(globalenv = TRUE)
 
 (knitr::opts_chunk$set(
 	echo = FALSE,
@@ -25,6 +28,7 @@ editor_options:
 	warning = FALSE
  )
 )
+
 
 ```
 
@@ -73,6 +77,10 @@ library("av")
 library("scales")
 library("png")
 library("magick")
+library("ggtext")
+library("waffle")
+library("MetBrewer")
+library("dplyr")
 
 ```
 
@@ -83,7 +91,7 @@ library("magick")
 # dowwnload dos dados do infosiga (https://www.infosiga.sp.gov.br/)
 
 
-dados <- read.csv("C:/Users/Thais Pereira/Documents/obitos_transito/obitos.csv")
+dados <- read_csv("C:/Users/Thais Pereira/Documents/obitos_transito/obitos.csv", locale = locale(encoding = "UTF-8"))
 
 shp_distritos <- st_read("C:/Users/Thais Pereira/Documents/shapefile/distritos_cnpj_2.shp")
 
@@ -91,13 +99,25 @@ pop <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/pop.xlsx")
 
 ```
 
-```{r include=FALSE}
+```{r  include=FALSE}
 
 # Adicionar a fonte do Google Fonts
 font_add_google("Lora", "Lora")
 
 # Ativar suporte a fontes no ggplot
 showtext_auto()
+
+dados_filtrados <- dados %>%
+   mutate(`Data do Sinistro` = dmy(`Data do Sinistro`),  
+   Ano = year(`Data do Sinistro`)) %>% 
+   filter(!Ano %in% c(2012, 2013, 2014, 2010, 1995, 1986, 2000, 2009, 2011)) %>% 
+   rename(locomocao = `Meio de locomoção da vítima`)
+
+dados_locomocao <- dados_filtrados %>%
+   dplyr::filter(locomocao != "NAO DISPONIVEL" & locomocao != "OUTROS") %>%
+   dplyr::mutate(locomocao = stringr::str_to_title(locomocao)) %>%
+   dplyr::group_by(Ano, locomocao) %>%
+   dplyr::tally()
 
 
 ```
@@ -133,11 +153,8 @@ Os mapas apresentados abaixo mostram a distribuição das mortes no trânsito na
 
 ```{r include=FALSE}
 
-dados_1 <- dados %>% 
-  mutate(Data.do.Sinistro = dmy(Data.do.Sinistro),  
-  Ano = year(Data.do.Sinistro)) %>% 
+dados_1 <- dados_filtrados %>% 
   filter(!is.na(ds_nome)) %>% 
-  filter(Ano != 2012 & Ano != 2013 & Ano !=  2014 & Ano !=  2010 & Ano !=  1995 &  Ano !=  1986 & Ano !=  2000 & Ano !=  2009 & Ano !=  2011) %>% 
   clean_names() %>% 
   group_by(ds_nome) %>% 
   tally() %>% 
@@ -444,10 +461,7 @@ htmltools::browsable(
 
 # taxa de óbitos por 100k hab. e total de óbitos absolutos
 
-dados %>% 
-  mutate(Data.do.Sinistro = dmy(Data.do.Sinistro),  
-  Ano = year(Data.do.Sinistro)) %>% 
-  filter(Ano != 2012 & Ano != 2013 & Ano !=  2014 & Ano !=  2010 & Ano !=  1995 &  Ano !=  1986 & Ano !=  2000 & Ano !=  2009 & Ano !=  2011) %>% 
+dados_filtrados %>% 
   clean_names() %>% 
   group_by(ds_nome) %>% 
   tally() %>% 
@@ -459,7 +473,6 @@ dados %>%
     taxa_obitos = (sum(n, na.rm = TRUE) / sum(pop, na.rm = TRUE)) * 100000
   )
 
-dados_1 %>% arrange(-n)
 
 ```
 
@@ -467,50 +480,138 @@ dados_1 %>% arrange(-n)
 ## **Quantidade de mortes ao longo do Tempo**
 
 
-```{r dev = "png", echo=FALSE}
+```{r fig.align = 'center',  fig.height= 4, fig.width=10, out.width = "80%"}
 
-options(bitmapType = "cairo")
+# Obter os 3 distritos com mais mortes por ano
+top3_distritos <- dados_filtrados %>% 
+   filter(!is.na(ds_nome)) %>% 
+   group_by(Ano, ds_nome) %>%  
+   tally() %>% 
+   arrange(Ano, desc(n)) %>%  
+   group_by(Ano) %>% 
+   slice(1:3) %>%  
+   summarise(Top_Distritos = paste(ds_nome, collapse = ", "), .groups = "drop") 
 
-# Adicionar a fonte Lora
-font_add_google("Lora", "Lora")
-showtext_auto()
 
-# Criar o gráfico animado
-primeiro_gif <- dados %>% 
-  mutate(Data.do.Sinistro = dmy(Data.do.Sinistro),  
-         Ano = as.numeric(year(Data.do.Sinistro))) %>%  # 🔹 Garante que Ano é numérico
-  filter(!Ano %in% c(2012, 2013, 2014, 2010, 1995, 1986, 2000, 2009, 2011)) %>%  # 🔹 Remove anos indesejados
+# base de dados para o gráfico
+dados_filtrados <- dados_filtrados %>% 
   group_by(Ano) %>% 
   tally() %>% 
-  ggplot(aes(x = Ano, y = n)) +  
-  geom_point(color = "#2F58A4", size = 5, alpha = 0.5) +  
+  left_join(top3_distritos, by = "Ano")
+
+
+# Criar o gráfico interativo com Plotly
+grafico_interativo <- ggplot(dados_filtrados, aes(x = Ano, y = n, text = paste0(
+  "Ano: ", Ano, "<br>",
+  "Mortes: ", n, "<br>",
+  "Top Distritos: ", Top_Distritos
+))) +
+  geom_line(color = "#f86254") +
+  geom_point(color = "#f86254", size = 4, alpha = 0.7) +
   labs(title = "Evolução das Mortes no Trânsito",
+       subtitle = "Número absoluto de óbitos no trânsito de 2015 a 2024",
        x = "",
        y = "") +
-#  scale_x_continuous(breaks = Ano, labels = as.character(Ano))+  # 🔹 Remove ".0" dos anos
+  scale_x_continuous(breaks = seq(2015, 2024, 1)) +  # Garante que todos os anos aparecem
   theme_minimal() +
-  scale_x_continuous(breaks=seq(2015,2024,1)) +
-  theme(plot.title = element_text(family = "Lora", size = 12, face = "bold", hjust = 0.5, colour = "black"),
+  geom_label(aes(label = n), vjust = -0.5, fill = "white", color = "black", family = "Lora", size = 4)+
+  theme(plot.title = element_text(family = "Lora", size = 10, face = "bold", hjust = 0.5, colour = "black"),
+        plot.subtitle = element_text(family = "Lora", size = 14, hjust = 0.5, colour = "gray30"),
         text = element_text(family = "Lora"),
-        axis.text = element_text(size = 11),
-        axis.text.x = element_text(size = 10),
-        legend.text = element_text(size = 10, face = "bold"),
-        legend.title = element_text(size = 10, face = "bold"),
-        legend.position = "bottom") +
-  transition_reveal(Ano) +  
-  shadow_trail()
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        legend.position = "none")
 
-png(filename = "temp.png", width = 600, height = 400)
-dev.off()
+# Converter para Plotly para adicionar interatividade
+grafico_interativo_plotly <- ggplotly(grafico_interativo, tooltip = "text")
 
-# Gerar a animação
-animate(
-    plot = primeiro_gif,
-    renderer = gifski_renderer(),
-    height = 400,
-    width = 600, 
-    duration = 10
-)
+# Exibir o gráfico interativo
+grafico_interativo_plotly
+
+  
+
+
+
+```
+
+
+
+```{r echo=FALSE,  fig.height= 9, fig.width=18, out.width="100%"}
+
+# Adicionar fontes personalizadas
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Evolução das Mortes no Trânsito por Meio de Locomoção da Vítima"
+
+# Criar gráfico
+  ggplot(dados_locomocao, 
+                               aes(fill = locomocao, values = n)) +  # 🔹 Removi `text =` daqui
+  geom_waffle(color = "white", size = .10, n_rows = 12, flip = TRUE) +
+  facet_wrap(~Ano, nrow = 1, strip.position = "bottom") +
+  scale_x_discrete() + 
+  MetBrewer::scale_fill_met_d("Redon", direction=1) +
+  coord_equal() +
+  labs(title = title_text) +
+  theme_minimal() +
+  theme(
+    # Legenda
+    legend.position = "right",
+    legend.title = element_blank(),
+    legend.spacing = unit(0.8, 'cm'),
+    legend.key.height = unit(1, 'cm'),
+    legend.key.width = unit(1, 'cm'),
+    legend.text = element_text(family = body_font, size = 12, color = "grey10"),
+    
+    # Texto
+    plot.title = element_text(family = "Lora", size = 12, face = "bold", hjust = 0.5, colour = "black"),
+    plot.subtitle = element_text(family = "Lora", size = 14, hjust = 0.5, colour = "gray30"),
+    text = element_text(family = "Lora"),
+    axis.text.x = element_text(size = 20), 
+    axis.text.y = element_text(size = 12)
+  )
+
+showtext_opts(dpi = 320)
+
+
+
+
+
+```
+
+
+```{r fig.align = 'center',  fig.height= 4, fig.width=10, out.width = "80%"}
+
+# Criar o gráfico interativo com linhas
+grafico_interativo <- ggplot(dados_locomocao, aes(x = Ano, y = n, color = locomocao, 
+                                                  group = locomocao,  # 🔹 Garante que cada locomoção tenha sua própria linha
+                                                  text = paste0("Ano: ", Ano, "<br>",
+                                                                "Mortes: ", n, "<br>",
+                                                                "Locomocao: ", locomocao, "<br>"))) +  
+  geom_line(size = 0.5, alpha = 0.8) +  # 🔹 Agora com linhas conectadas
+  geom_point(size = 3, alpha = 0.9) +  # 🔹 Mantém os pontos para destaque
+  labs(title = title_text,
+       x = "",
+       y = "") +
+  scale_x_continuous(breaks = seq(2015, 2024, 1)) + 
+  MetBrewer::scale_fill_met_d("Redon", direction=1) +
+  theme_minimal() +
+  theme(plot.title = element_text(family = "Lora", size = 9, face = "bold", hjust = 0.5, colour = "black"),
+        text = element_text(family = "Lora"),
+        axis.text = element_text(size = 9),
+        axis.text.x = element_text(size = 9),
+        legend.position = "bottom")
+
+
+# Converter para Plotly para adicionar interatividade
+grafico_interativo_plotly <- ggplotly(grafico_interativo, tooltip = "text")
+
+# Exibir o gráfico interativo
+grafico_interativo_plotly
 
 
 
