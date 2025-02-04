@@ -81,6 +81,8 @@ library("ggtext")
 library("waffle")
 library("MetBrewer")
 library("dplyr")
+library("glue")
+library("marquee")
 
 ```
 
@@ -111,14 +113,20 @@ dados_filtrados <- dados %>%
    mutate(`Data do Sinistro` = dmy(`Data do Sinistro`),  
    Ano = year(`Data do Sinistro`)) %>% 
    filter(!Ano %in% c(2012, 2013, 2014, 2010, 1995, 1986, 2000, 2009, 2011)) %>% 
-   rename(locomocao = `Meio de locomoção da vítima`)
+   rename(locomocao = `Meio de locomoção da vítima`) %>% 
+   dplyr::mutate(ds_nome = stringr::str_to_title(ds_nome)) %>% 
+   left_join(pop, by = "ds_nome")
 
 dados_locomocao <- dados_filtrados %>%
    dplyr::filter(locomocao != "NAO DISPONIVEL" & locomocao != "OUTROS") %>%
-   dplyr::mutate(locomocao = stringr::str_to_title(locomocao)) %>%
+  dplyr::mutate(locomocao = stringr::str_to_title(locomocao)) %>% 
    dplyr::group_by(Ano, locomocao) %>%
    dplyr::tally()
 
+mortes_regiao <- dados_filtrados %>% 
+  filter(!is.na(ds_nome)) %>% 
+  group_by(Ano, regiao) %>% 
+  tally()
 
 ```
 
@@ -153,13 +161,11 @@ Os mapas apresentados abaixo mostram a distribuição das mortes no trânsito na
 
 ```{r include=FALSE}
 
-dados_1 <- dados_filtrados %>% 
+dados_2 <- dados_filtrados %>% 
   filter(!is.na(ds_nome)) %>% 
   clean_names() %>% 
-  group_by(ds_nome) %>% 
+  group_by(ds_nome, pop) %>% 
   tally() %>% 
-  mutate(ds_nome = str_to_title(ds_nome)) %>% 
-  left_join(pop, by = "ds_nome") %>% 
   mutate(pct = n/sum(n)*100) %>% 
   mutate(mortes_cem_mil_hab = n/pop*100000)
 
@@ -184,7 +190,7 @@ shp_distritos_1 <- shp_distritos %>% mutate(
   )
 
 shp_distritos_2 <- shp_distritos_1 %>%
-  left_join(dados_1, by = "ds_nome")
+  left_join(dados_2, by = "ds_nome")
 
 
 ```
@@ -437,7 +443,7 @@ interactive_plot_2 <- girafe(
 ```
 
 
-```{r, echo=FALSE, fig.height= 14, fig.width=16, out.width="100%", results="asis"}
+```{r, echo=FALSE, fig.height= 14, fig.width=16, out.width="300%", results="asis"}
 library(htmltools)
 
 # Criar layout flexível para exibir os gráficos lado a lado
@@ -494,14 +500,14 @@ top3_distritos <- dados_filtrados %>%
 
 
 # base de dados para o gráfico
-dados_filtrados <- dados_filtrados %>% 
+dados_filtrados_1 <- dados_filtrados %>% 
   group_by(Ano) %>% 
   tally() %>% 
   left_join(top3_distritos, by = "Ano")
 
 
 # Criar o gráfico interativo com Plotly
-grafico_interativo <- ggplot(dados_filtrados, aes(x = Ano, y = n, text = paste0(
+grafico_interativo <- ggplot(dados_filtrados_1, aes(x = Ano, y = n, text = paste0(
   "Ano: ", Ano, "<br>",
   "Mortes: ", n, "<br>",
   "Top Distritos: ", Top_Distritos
@@ -528,63 +534,14 @@ grafico_interativo_plotly <- ggplotly(grafico_interativo, tooltip = "text")
 # Exibir o gráfico interativo
 grafico_interativo_plotly
 
-  
-
-
-
 ```
 
 
-
-```{r echo=FALSE,  fig.height= 9, fig.width=18, out.width="100%"}
-
-# Adicionar fontes personalizadas
-font_add_google("Outfit", "title_font")
-font_add_google("Cabin", "body_font")
-showtext_auto()
-
-title_font <- "title_font"
-body_font <- "body_font"
-
-title_text <- "Evolução das Mortes no Trânsito por Meio de Locomoção da Vítima"
-
-# Criar gráfico
-  ggplot(dados_locomocao, 
-                               aes(fill = locomocao, values = n)) +  # 🔹 Removi `text =` daqui
-  geom_waffle(color = "white", size = .10, n_rows = 12, flip = TRUE) +
-  facet_wrap(~Ano, nrow = 1, strip.position = "bottom") +
-  scale_x_discrete() + 
-  MetBrewer::scale_fill_met_d("Redon", direction=1) +
-  coord_equal() +
-  labs(title = title_text) +
-  theme_minimal() +
-  theme(
-    # Legenda
-    legend.position = "right",
-    legend.title = element_blank(),
-    legend.spacing = unit(0.8, 'cm'),
-    legend.key.height = unit(1, 'cm'),
-    legend.key.width = unit(1, 'cm'),
-    legend.text = element_text(family = body_font, size = 12, color = "grey10"),
-    
-    # Texto
-    plot.title = element_text(family = "Lora", size = 12, face = "bold", hjust = 0.5, colour = "black"),
-    plot.subtitle = element_text(family = "Lora", size = 14, hjust = 0.5, colour = "gray30"),
-    text = element_text(family = "Lora"),
-    axis.text.x = element_text(size = 20), 
-    axis.text.y = element_text(size = 12)
-  )
-
-showtext_opts(dpi = 320)
-
-
-
-
-
-```
 
 
 ```{r fig.align = 'center',  fig.height= 4, fig.width=10, out.width = "80%"}
+
+titulo <- glue("Evolução das Mortes no Trânsito por Meio de Locomoção da Vítima \n <b style='color:#18C5C9;'>Motocicleta</b>,  <b style='color:#F46FE5;'>Pedestre</b>, <b style='color:#F8837B;'>Automóvel</b>, <b style='color:#BEA818;'>Bicicleta</b>, <b style='color:#599FED;'>Ônibus</b>, <b style='color:#04BB3B;'>Caminhão</b>")
 
 # Criar o gráfico interativo com linhas
 grafico_interativo <- ggplot(dados_locomocao, aes(x = Ano, y = n, color = locomocao, 
@@ -594,17 +551,99 @@ grafico_interativo <- ggplot(dados_locomocao, aes(x = Ano, y = n, color = locomo
                                                                 "Locomocao: ", locomocao, "<br>"))) +  
   geom_line(size = 0.5, alpha = 0.8) +  # 🔹 Agora com linhas conectadas
   geom_point(size = 3, alpha = 0.9) +  # 🔹 Mantém os pontos para destaque
-  labs(title = title_text,
+  labs(title = titulo,
        x = "",
        y = "") +
   scale_x_continuous(breaks = seq(2015, 2024, 1)) + 
   MetBrewer::scale_fill_met_d("Redon", direction=1) +
   theme_minimal() +
-  theme(plot.title = element_text(family = "Lora", size = 9, face = "bold", hjust = 0.5, colour = "black"),
+  theme(plot.title = element_text(family = "Lora", size = 10, face = "bold", hjust = 0.5, colour = "black"),
         text = element_text(family = "Lora"),
         axis.text = element_text(size = 9),
         axis.text.x = element_text(size = 9),
-        legend.position = "bottom")
+        legend.position = "none")
+
+
+# Converter para Plotly para adicionar interatividade
+grafico_interativo_plotly <- ggplotly(grafico_interativo, tooltip = "text")
+
+# Exibir o gráfico interativo
+grafico_interativo_plotly
+
+
+
+```
+
+
+```{r echo=FALSE,  fig.height= 10, fig.width=18, out.width="100%"}
+
+col_vec <- c(
+  "Motocicleta" = "#18C5C9",
+  "Pedestre" = "#F46FE5",
+  "Automóvel" = "#F8837B",
+  "Bicicleta" = "#BEA818",
+  "Ônibus" = "#599FED",
+  "Caminhão" = "#04BB3B"
+)
+
+
+
+# Criar gráfico
+  ggplot(dados_locomocao, 
+                               aes(fill = locomocao, values = n)) +  # 🔹 Removi `text =` daqui
+  geom_waffle(color = "white", size = 0.01, n_rows = 12, flip = TRUE) +
+  facet_wrap(~Ano, nrow = 1, strip.position = "bottom") +
+  scale_x_discrete() + 
+    scale_fill_manual(
+    values = c("#18C5C9", alpha("#F46FE5", 1/3), alpha("#F8837B", 1/2), alpha("#BEA818", 1/3), alpha("#599FED", 1/2), alpha("#04BB3B", 1/3)
+  ))+
+  coord_equal() +
+  labs(title = "Evolução das Mortes no Trânsito por Meio de Locomoção da Vítima") +
+  theme_minimal() +
+  theme(
+      # Texto
+    plot.title = element_text(family = "Lora", size = 13, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(family = "Lora", size = 14, hjust = 0.5, colour = "gray30"),
+    text = element_text(family = "Lora"),
+    axis.text.x = element_text(size = 35), 
+    axis.text.y = element_text(size = 12), 
+    legend.position = "right", 
+    legend.text = element_text(size = 11),
+    legend.title = element_blank(), 
+    legend.spacing.x = unit(2.5, 'cm'),  # 🔹 Aumenta o espaçamento horizontal dos itens da legenda
+    legend.key.width = unit(1.5, "cm"))
+
+showtext_opts(dpi = 320)
+
+
+
+```
+
+
+
+```{r fig.align = 'center',  fig.height= 4, fig.width=10, out.width = "80%"}
+
+titulo <- glue("Evolução das Mortes no Trânsito por Região de São Paulo \n <b style='color:#E271F2;'>Sul</b>,  <b style='color:#AAAE27;'>Leste</b>, <b style='color:#40C48A;'>Norte</b>, <b style='color:#49B6F5;'>Oeste</b>, <b style='color:#F1877E;'>Centro</b>")
+
+# Criar o gráfico interativo com linhas
+grafico_interativo <- ggplot(mortes_regiao, aes(x = Ano, y = n, color = regiao, 
+                                                  group = regiao,  # 🔹 Garante que cada locomoção tenha sua própria linha
+                                                  text = paste0("Ano: ", Ano, "<br>",
+                                                                "Mortes: ", n, "<br>",
+                                                                "regiao: ", regiao, "<br>"))) +  
+  geom_line(size = 0.5, alpha = 0.8) +  # 🔹 Agora com linhas conectadas
+  geom_point(size = 3, alpha = 0.9) +  # 🔹 Mantém os pontos para destaque
+  labs(title = titulo,
+       x = "",
+       y = "") +
+  scale_x_continuous(breaks = seq(2015, 2024, 1)) + 
+  MetBrewer::scale_fill_met_d("Redon", direction=1) +
+  theme_minimal() +
+  theme(plot.title = element_text(family = "Lora", size = 10, face = "bold", hjust = 0.5, colour = "black"),
+        text = element_text(family = "Lora"),
+        axis.text = element_text(size = 9),
+        axis.text.x = element_text(size = 9),
+        legend.position = "none")
 
 
 # Converter para Plotly para adicionar interatividade
@@ -620,10 +659,412 @@ grafico_interativo_plotly
 
 
 
-## **Análise Socio econômica**
-
-
 ## **Análise por Distrito**
+
+```{r fig.height=9, fig.width=11, include=FALSE, out.width="100%"}
+
+theme_update(plot.title = element_text(size = 24, face = "bold", hjust = 0.5, family = "Lora"))
+
+dados_1 <- dados_filtrados %>% 
+  filter(!is.na(ds_nome)) %>% 
+  clean_names() %>% 
+  group_by(ds_nome, pop, locomocao) %>% 
+  tally() %>% 
+  filter(locomocao == "PEDESTRE") %>% 
+  mutate(mortes_cem_mil_hab = n/pop*100000)
+
+# Transformar em coordenadas geográficas
+shp_distritos <- st_transform(shp_distritos, crs = 4326)
+
+shp_distritos_2 <- shp_distritos %>% mutate(
+    Indice = as.character(row_number()),
+    ds_nome = str_trim(ds_nome),  
+    ds_nome = stri_trans_general(ds_nome, "Latin-ASCII"), 
+    ds_nome = str_to_title(ds_nome)  
+  ) %>% 
+  mutate(
+    ds_nome = case_when(
+      ds_nome == "Agua Rasa\n" ~ "Agua Rasa",
+      ds_nome == "Alto De Pinheiros\n" ~ "Alto De Pinheiros",
+      ds_nome == "Anhanguera\n" ~ "Anhanguera",
+      TRUE ~ ds_nome
+    )
+  )
+
+shp_distritos_3 <- shp_distritos_2 %>%
+  left_join(dados_1, by = "ds_nome")
+
+shp_distritos_4 <- shp_distritos_3 %>%
+  mutate(group_mortes = cut(mortes_cem_mil_hab, 
+                            breaks = quantile(mortes_cem_mil_hab, probs = seq(0, 1, 0.2), na.rm = TRUE), 
+                            include.lowest = TRUE))
+
+# Criar o mapa com os distritos de São Paulo e a taxa de óbitos
+pmap <- ggplot(shp_distritos_4) +
+  geom_sf_interactive(aes(fill = mortes_cem_mil_hab, geometry = geometry, 
+                          data_id = ds_nome, 
+                          tooltip = paste(ds_nome, "<br>Óbitos de pedestres por 100k:", round(mortes_cem_mil_hab, 1))), 
+                      lwd = 0.1, color = "white") +
+  scale_fill_fermenter(
+    name = "Óbitos por 100k",
+    breaks = quantile(shp_distritos_3$mortes_cem_mil_hab, probs = seq(0, 1, 0.2), na.rm = TRUE),
+    direction = 1,
+    palette = "Reds"
+  ) +
+  labs(
+    title = "",
+    subtitle = "",
+    caption = ""
+  ) +
+  theme_map() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(size = rel(2), hjust = 0.5),
+    plot.caption = element_text(size = 25, hjust = 0.5)
+  ) + 
+  guides(fill = "none")
+
+
+# Aplicar ao gráfico a fonte 'Lora' e evitar cortes
+pmap <- pmap + theme(
+  text = element_text(family = "Lora"),
+  axis.text = element_text(family = "Lora"),
+  legend.text = element_text(family = "Lora"),
+  legend.title = element_text(family = "Lora")
+) + coord_sf(expand = FALSE) + theme_void() +
+  annotate("text", 
+           x = mean(st_bbox(shp_distritos_3)[c("xmin", "xmax")]),  # Centraliza no eixo X
+           y = st_bbox(shp_distritos_3)["ymax"] + 0.05 * diff(st_bbox(shp_distritos_3)[c("ymin", "ymax")]),  # Move para cima
+           label = "Mortes de Pedestres p/ 100k hab.",
+           hjust = 0.5, vjust = 1, size = 10, fontface = "bold", family = "Lora")
+
+# Criar um gráfico interativo com ggiraph
+interactive_plot_2_pedestre <- girafe(
+  ggobj = pmap,
+  width_svg = 14,  
+  height_svg = 12,  
+  options = list(
+    opts_hover(css = "fill:#f58d17;"),  
+    opts_selection(type = "single", only_shiny = FALSE) 
+  )
+)
+
+
+
+interactive_plot_2_pedestre
+
+```
+
+
+```{r fig.height=9, fig.width=11, include=FALSE, out.width="100%"}
+
+shp_distritos <- st_read("C:/Users/Thais Pereira/Documents/shapefile/distritos_cnpj_2.shp")
+
+theme_update(plot.title = element_text(size = 24, face = "bold", hjust = 0.5, family = "Lora"))
+
+dados_1 <- dados_filtrados %>% 
+  filter(!is.na(ds_nome)) %>% 
+  clean_names() %>% 
+  group_by(ds_nome, pop, locomocao) %>% 
+  tally() %>% 
+  filter(locomocao == "MOTOCICLETA") %>% 
+  mutate(mortes_cem_mil_hab = n/pop*100000)
+
+# Transformar em coordenadas geográficas
+shp_distritos <- st_transform(shp_distritos, crs = 4326)
+
+shp_distritos_4 <- shp_distritos %>% rename(ds_nome = NOME_DIST)
+
+shp_distritos_5 <- shp_distritos_4 %>% mutate(
+    Indice = as.character(row_number()),
+    ds_nome = str_trim(ds_nome),  
+    ds_nome = stri_trans_general(ds_nome, "Latin-ASCII"), 
+    ds_nome = str_to_title(ds_nome)  
+  ) %>% 
+  mutate(
+    ds_nome = case_when(
+      ds_nome == "Agua Rasa\n" ~ "Agua Rasa",
+      ds_nome == "Alto De Pinheiros\n" ~ "Alto De Pinheiros",
+      ds_nome == "Anhanguera\n" ~ "Anhanguera",
+      TRUE ~ ds_nome
+    )
+  )
+
+shp_distritos_6 <- shp_distritos_5 %>%
+  left_join(dados_1, by = "ds_nome") %>% 
+   mutate(n = replace_na(n, 0))
+
+shp_distritos_4 <- shp_distritos_6 %>%
+  mutate(group_mortes = cut(mortes_cem_mil_hab, 
+                            breaks = quantile(mortes_cem_mil_hab, probs = seq(0, 1, 0.2), na.rm = TRUE), 
+                            include.lowest = TRUE))
+
+# Criar o mapa com os distritos de São Paulo e a taxa de óbitos
+pmap <- ggplot(shp_distritos_4) +
+  geom_sf_interactive(aes(fill = mortes_cem_mil_hab, geometry = geometry, 
+                          data_id = ds_nome, 
+                          tooltip = paste(ds_nome, "<br>Óbitos de motociclistas por 100k:", round(mortes_cem_mil_hab, 1))), 
+                      lwd = 0.1, color = "white") +
+  scale_fill_fermenter(
+    name = "Óbitos por 100k",
+    breaks = quantile(shp_distritos_3$mortes_cem_mil_hab, probs = seq(0, 1, 0.2), na.rm = TRUE),
+    direction = 1,
+    palette = "Reds"
+  ) +
+  theme_map() +
+  guides(fill = "none")
+  
+
+# Aplicar ao gráfico a fonte 'Lora' e evitar cortes
+pmap <- pmap + theme(
+  text = element_text(family = "Lora"),
+  axis.text = element_text(family = "Lora"),
+  legend.text = element_text(family = "Lora"),
+  legend.title = element_text(family = "Lora") +
+  guides(fill = "none")) + coord_sf(expand = FALSE) + theme_void() +
+  annotate("text", 
+           x = mean(st_bbox(shp_distritos_3)[c("xmin", "xmax")]),  # Centraliza no eixo X
+           y = st_bbox(shp_distritos_3)["ymax"] + 0.05 * diff(st_bbox(shp_distritos_3)[c("ymin", "ymax")]),  # Move para cima
+           label = "Mortes de Motociclistas p/ 100k hab.",
+           hjust = 0.5, vjust = 1, size = 10, fontface = "bold", family = "Lora")
+
+interactive_plot_2_moto <- girafe(
+  ggobj = pmap,
+  width_svg = 14,  
+  height_svg = 12,  
+  options = list(
+    opts_hover(css = "fill:#f58d17;"),  
+    opts_selection(type = "single", only_shiny = FALSE) 
+  )
+)
+
+
+
+```
+
+
+```{r, echo=FALSE, fig.height= 14, fig.width=16, out.width="200%", results="asis"}
+library(htmltools)
+
+# Criar layout flexível para exibir os gráficos lado a lado
+htmltools::browsable(
+  tags$div(
+    style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
+    
+    # Mapa interativo (primeiro gráfico)
+    tags$div(style = "width: 50%;", interactive_plot_2_pedestre),  
+    
+    # Gráfico lateral interativo (segundo gráfico)
+    tags$div(style = "width: 50%;", interactive_plot_2_moto)  
+  )
+)
+
+
+
+```
+
+
+```{r fig.height=9, fig.width=11, include=FALSE, out.width="100%"}
+
+shp_distritos <- st_read("C:/Users/Thais Pereira/Documents/shapefile/distritos_cnpj_2.shp")
+
+theme_update(plot.title = element_text(size = 24, face = "bold", hjust = 0.5, family = "Lora"))
+
+dados_2 <- dados_filtrados %>% 
+  filter(!is.na(ds_nome)) %>% 
+  clean_names() %>% 
+  group_by(ds_nome, pop, locomocao) %>% 
+  tally() %>% 
+  filter(locomocao == "AUTOMOVEL") %>% 
+  mutate(mortes_cem_mil_hab = n/pop*100000) %>% 
+    bind_rows(
+    data.frame(ds_nome = "Marsilac", mortes_cem_mil_hab = 0),
+    data.frame(ds_nome = "Perdizes", mortes_cem_mil_hab = 0),
+    data.frame(ds_nome = "Bela Vista", mortes_cem_mil_hab = 0)
+  )
+
+# Transformar em coordenadas geográficas
+shp_distritos <- st_transform(shp_distritos, crs = 4326)
+
+shp_distritos_4 <- shp_distritos %>% rename(ds_nome = NOME_DIST)
+
+shp_distritos_5 <- shp_distritos_4 %>% mutate(
+    Indice = as.character(row_number()),
+    ds_nome = str_trim(ds_nome),  
+    ds_nome = stri_trans_general(ds_nome, "Latin-ASCII"), 
+    ds_nome = str_to_title(ds_nome)  
+  ) %>% 
+  mutate(
+    ds_nome = case_when(
+      ds_nome == "Agua Rasa\n" ~ "Agua Rasa",
+      ds_nome == "Alto De Pinheiros\n" ~ "Alto De Pinheiros",
+      ds_nome == "Anhanguera\n" ~ "Anhanguera",
+      TRUE ~ ds_nome
+    )
+  )
+
+shp_distritos_6 <- shp_distritos_5 %>%
+  left_join(dados_2, by = "ds_nome")
+
+shp_distritos_4 <- shp_distritos_6 %>%
+  mutate(group_mortes = cut(mortes_cem_mil_hab, 
+                            breaks = quantile(mortes_cem_mil_hab, probs = seq(0, 1, 0.2), na.rm = TRUE), 
+                            include.lowest = TRUE))
+
+# Criar o mapa com os distritos de São Paulo e a taxa de óbitos
+pmap <- ggplot(shp_distritos_4) +
+  geom_sf_interactive(aes(fill = mortes_cem_mil_hab, geometry = geometry, 
+                          data_id = ds_nome, 
+                          tooltip = paste(ds_nome, "<br>Óbitos de condutores de automóvel por 100k:", round(mortes_cem_mil_hab, 1))), 
+                      lwd = 0.1, color = "white") +
+scale_fill_fermenter(
+    name = "Óbitos por 100k",
+    breaks = c(0, 5, 10, 15, 20, 25, 30, ,35),  # Definindo intervalos menores
+    direction = 1,
+    palette = "Reds"
+)+
+  theme_map() +
+  guides(fill = "none")
+
+# Aplicar ao gráfico a fonte 'Lora' e evitar cortes
+pmap <- pmap + theme(
+  text = element_text(family = "Lora"),
+  axis.text = element_text(family = "Lora"))+
+  coord_sf(expand = FALSE) + theme_void() +
+  annotate("text", 
+           x = mean(st_bbox(shp_distritos_3)[c("xmin", "xmax")]),  # Centraliza no eixo X
+           y = st_bbox(shp_distritos_3)["ymax"] + 0.05 * diff(st_bbox(shp_distritos_3)[c("ymin", "ymax")]),  # Move para cima
+           label = "Mortes de condutores de automóvel \n p/ 100k hab.",
+           hjust = 0.5, vjust = 1, size = 10, fontface = "bold", family = "Lora")
+
+interactive_plot_2_auto <- girafe(
+  ggobj = pmap,
+  width_svg = 14,  
+  height_svg = 12,  
+  options = list(
+    opts_hover(css = "fill:#f58d17;"),  
+    opts_selection(type = "single", only_shiny = FALSE) 
+  )
+)
+
+
+
+```
+
+
+```{r fig.height=9, fig.width=11, include=FALSE, out.width="100%"}
+
+shp_distritos <- st_read("C:/Users/Thais Pereira/Documents/shapefile/distritos_cnpj_2.shp")
+
+theme_update(plot.title = element_text(size = 24, face = "bold", hjust = 0.5, family = "Lora"))
+
+dados_3 <- dados_filtrados %>% 
+  filter(!is.na(ds_nome)) %>% 
+  clean_names() %>% 
+  group_by(ds_nome, pop, locomocao) %>% 
+  tally() %>% 
+  filter(locomocao == "BICICLETA") %>% 
+  mutate(mortes_cem_mil_hab = n/pop*100000) %>% 
+  bind_rows(
+    data.frame(ds_nome = "Marsilac", mortes_cem_mil_hab = 0),
+    data.frame(ds_nome = "Morumbi", mortes_cem_mil_hab = 0), 
+    data.frame(ds_nome = "Rio Pequeno", mortes_cem_mil_hab = 0),
+    data.frame(ds_nome = "Sao Domingos", mortes_cem_mil_hab = 0), 
+    data.frame(ds_nome = "Liberdade", mortes_cem_mil_hab = 0), 
+    data.frame(ds_nome = "Cidade Lider", mortes_cem_mil_hab = 0)
+  )
+
+# Transformar em coordenadas geográficas
+shp_distritos <- st_transform(shp_distritos, crs = 4326)
+
+shp_distritos_4 <- shp_distritos %>% rename(ds_nome = NOME_DIST)
+
+shp_distritos_5 <- shp_distritos_4 %>% mutate(
+    Indice = as.character(row_number()),
+    ds_nome = str_trim(ds_nome),  
+    ds_nome = stri_trans_general(ds_nome, "Latin-ASCII"), 
+    ds_nome = str_to_title(ds_nome)  
+  ) %>% 
+  mutate(
+    ds_nome = case_when(
+      ds_nome == "Agua Rasa\n" ~ "Agua Rasa",
+      ds_nome == "Alto De Pinheiros\n" ~ "Alto De Pinheiros",
+      ds_nome == "Anhanguera\n" ~ "Anhanguera",
+      TRUE ~ ds_nome
+    )
+  )
+
+shp_distritos_6 <- shp_distritos_5 %>%
+  left_join(dados_3, by = "ds_nome")
+
+shp_distritos_4 <- shp_distritos_6 %>%
+  mutate(group_mortes = cut(mortes_cem_mil_hab, 
+                            breaks = quantile(mortes_cem_mil_hab, probs = seq(0, 1, 0.2), na.rm = TRUE), 
+                            include.lowest = TRUE))
+
+# Criar o mapa com os distritos de São Paulo e a taxa de óbitos
+pmap <- ggplot(shp_distritos_4) +
+  geom_sf_interactive(aes(fill = mortes_cem_mil_hab, geometry = geometry, 
+                          data_id = ds_nome, 
+                          tooltip = paste(ds_nome, "<br>Óbitos de ciclistas por 100k:", round(mortes_cem_mil_hab, 1))), 
+                      lwd = 0.1, color = "white") +
+  scale_fill_fermenter(
+    name = "Óbitos por 100k",
+    breaks = quantile(log1p(shp_distritos_3$mortes_cem_mil_hab), probs = seq(0, 1, 0.2), na.rm = TRUE),
+    direction = 1,
+    palette = "Reds"
+  ) +
+  theme_map() +
+  guides(fill = "none")
+
+
+# Aplicar ao gráfico a fonte 'Lora' e evitar cortes
+pmap <- pmap + theme(
+  text = element_text(family = "Lora"),
+  axis.text = element_text(family = "Lora"),
+) + coord_sf(expand = FALSE) + theme_void() +
+  guides(fill = "none") +
+  annotate("text", 
+           x = mean(st_bbox(shp_distritos_3)[c("xmin", "xmax")]),  # Centraliza no eixo X
+           y = st_bbox(shp_distritos_3)["ymax"] + 0.05 * diff(st_bbox(shp_distritos_3)[c("ymin", "ymax")]),  # Move para cima
+           label = "Mortes de Ciclistas p/ 100k hab.",
+           hjust = 0.5, vjust = 1, size = 10, fontface = "bold", family = "Lora")
+
+interactive_plot_2_ciclistas <- girafe(
+  ggobj = pmap,
+  width_svg = 14,  
+  height_svg = 12,  
+  options = list(
+    opts_hover(css = "fill:#f58d17;"),  
+    opts_selection(type = "single", only_shiny = FALSE) 
+  )
+)
+
+
+
+```
+
+
+
+```{r, echo=FALSE, fig.height= 14, fig.width=16, out.width="150%", results="asis"}
+library(htmltools)
+
+# Criar layout flexível para exibir os gráficos lado a lado
+htmltools::browsable(
+  tags$div(
+    style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
+    
+    # Mapa interativo (primeiro gráfico)
+    tags$div(style = "width: 50%;", interactive_plot_2_auto),  
+    
+    # Gráfico lateral interativo (segundo gráfico)
+    tags$div(style = "width: 50%;", interactive_plot_2_ciclistas)  
+  )
+)
+
+
+
+```
 
 
 ## **Considerações Finais**
