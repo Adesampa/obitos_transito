@@ -1,5 +1,5 @@
 ---
-title: Análise das Mortes no Trânsito no Município de São Paulo
+title: Análise das Mortes no Trânsito no Município de São Paulo \n Relatório Executivo
 author: "Agência São Paulo de Desenvolvimento - ADE SAMPA"
 date: "`r format(Sys.Date(), format='%d/%m/%Y')`"
 output:
@@ -104,13 +104,14 @@ pop <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/pop.xlsx")
 ```
 
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 dados_logadouro %>% 
   filter(lg_tipo == "AV") %>% 
   group_by(lg_nome) %>% 
   tally() %>% 
-  arrange(-n)
+  arrange(-n) %>% 
+  view()
 
 ```
 
@@ -127,7 +128,10 @@ showtext_auto()
 
 dados_filtrados <- dados %>%
    mutate(`Data do Sinistro` = dmy(`Data do Sinistro`),  
-   Ano = year(`Data do Sinistro`)) %>% 
+   Ano = year(`Data do Sinistro`), 
+   Mes = month(`Data do Sinistro`)) %>% 
+   mutate(Mes = factor(Mes, levels = 1:12, labels = c("jan", "fev", "mar", "abr", "mai", "jun",
+                                                     "jul", "ago", "set", "out", "nov", "dez"))) %>% 
    filter(!Ano %in% c(2012, 2013, 2014, 2010, 1995, 1986, 2000, 2009, 2011)) %>% 
    rename(locomocao = `Meio de locomoção da vítima`) %>% 
    dplyr::mutate(ds_nome = stringr::str_to_title(ds_nome)) %>% 
@@ -169,9 +173,13 @@ Tendo em vista a demonstração de preocupação por parte das autoridades feder
 ## **Estatísticas Gerais**
 
 
-## 1. Mapas das mortes por distritos 
+Mapas das mortes por distritos 
 
-Os mapas apresentados abaixo mostram a distribuição das mortes no trânsito na cidade de São Paulo, destacando tanto os números absolutos quanto a taxa de óbitos por 100 mil habitantes. Tendo como base que segundo o IBGE São Paulo contava em 2022 com 11.451.999 habitantes, e entre 2015 e 2024 a cidade somou um total de **9.216** mortes no trânsito, temos uma taxa geral de **80,5** mortes para cada 100 mil habitantes. Em termos absolutos, os distritos com maior número de óbitos foram Jardim **Jardim Sao Luis (231)**, **Grajaú (229)** e **Cidade Dutra (196)**, enquanto os que registraram menos mortes foram **Marsilac (4)**, **Perdizes (21)** e **Bela Vista (26)**. Quando analisamos os piores distritos em termos de taxa de mortalidade proporcional à população, os destaques negativos são **Sé (314 mortes por 100 mil habitantes)**, **Jaraguá (287)** e **Butantã (201)**, enquanto os distritos com menor impacto proporcional foram **Perdizes (20)**, **Jardim Helena (27)** e **Cidade Líder (33)**. Um adenso a utilização da base de dados do Infogsiga é que para 983 mortes não foi possível encontrar o distrito de acontecimento do acidente, ou por falta de informações de latitude e longitude ou por imprecisão do dado, no entanto somamos esse caso para as estatísticas gerais. 
+Os mapas apresentados abaixo mostram a distribuição das mortes no trânsito na cidade de São Paulo, destacando tanto os números absolutos quanto a taxa de óbitos por 100 mil habitantes. Tendo como base que segundo o IBGE São Paulo contava em 2022 com 11.451.999 habitantes, e entre 2015 e 2024 a cidade somou um total de **9.216** mortes no trânsito, temos uma taxa geral de **80,5** mortes para cada 100 mil habitantes. Em termos absolutos, os distritos com maior número de óbitos foram Jardim **Jardim Sao Luis (231)**, **Grajaú (229)** e **Cidade Dutra (196)**, enquanto os que registraram menos mortes foram **Marsilac (4)**, **Perdizes (21)** e **Bela Vista (26)**.
+
+Quando analisamos os piores distritos em termos de taxa de mortalidade proporcional à população, os destaques negativos são **Sé (314 mortes por 100 mil habitantes)**, **Jaraguá (287)** e **Butantã (201)**, enquanto os distritos com menor impacto proporcional foram **Perdizes (20)**, **Jardim Helena (27)** e **Cidade Líder (33)**. 
+
+Um adendo a utilização da base de dados do Infogsiga é que para 983 mortes não foi possível encontrar o distrito de acontecimento do acidente, ou por falta de informações de latitude e longitude ou por imprecisão do dado, no entanto somamos esse caso para as estatísticas gerais. 
 
 
 
@@ -499,6 +507,10 @@ dados_filtrados %>%
 
 ## **Quantidade de mortes ao longo do Tempo**
 
+O gráfico abaixo mostra a série história da quantidade absoluta de óbitos no transito de 2015 a 2024. Como podemos ver, os números estavam numa tendência de queda entre **2015 (1131)**, **2016 (976)** e **2017 (886)**, estancionando em 2018 com **895** óbitos e voltando a cair novamente em 2019 com o saldo de **860** óbitos. A queda drástica nas mortes em 2020 e 2021 podem estar associadas a pandemia de Covid-19, o isolamento social e adoção de teletrabalho em muitos setores, mas voltam a subir em 2022, **24%** a mais em relação a 2021, depois **7%** a mais em 2023 e finalmente **10%** a mais em 2024, o maior número desde 2016. Voltamos a patamares muito próximos de 2015, uma diferença de **3%** a menos, apenas. 
+
+O gráfico também mostra os três distritos com mais óbitos em cada ano, dos 14 distritos que aparecem nessa estatística, 8 são da zona sul (Grajau, Jardim Angela, Capao Redondo, Jardim Sao Luis, Cidade Ademar, Campo Limpo, Cidade Dutra, Parelheiros), 3 da zona norte (Jaragua, Pirituba, Jacana) e 3 da zona leste (Sapopemba, Itaquera, Cangaiba). Durante os dez anos da série histórica o distrito do Grajau apareceu em 7 deles no topo do ranking, 2015, 2016, 2017 e 2019, voltando a patamares semelhantes nos últimos 3 anos (2022, 2023 e 2024). Lembrando que o grajau também é o distrito com maior população na cidade de São Paulo (384.873 habitantes segundo censo de 2022). Para efeito de comparação o distrito do Jardim Angela, apesar de população parecida (311.432) só apareceu entre os três distritos com mais óbitos em 2016. 
+
 
 ```{r fig.align = 'center',  fig.height= 4, fig.width=10, out.width = "80%"}
 
@@ -550,7 +562,64 @@ grafico_interativo_plotly
 
 ```
 
+No gráfico abaixo analisamos os últimos dois anos, mês a mês, para entender se existe alguma tendência geral de queda ou aumento nas mortes no transito. Sabemos que em 2024 as mortes aumentaram  **10%** em relação ao ano anterior, mas o que mais chama à atenção neste gráfico são os meses de março, abril, maio, junho e julho de 2024, eles representam juntos **46%** a mais de mortes em relação aos mesmo período do ano anterior. A partir de setembro temos uma pequena tendência de queda no número de óbitos, que são menores em relação ao mesmo período do ano anterior, em outubro, novembro e dezembro tivemos **18%** a menos de óbitos do que no mesmo período do ano anterior. De qualquer modo, ainda não é possível dizer que há uma tendência clara de queda no número de óbitos ao longo do último ano, mesmo comparativamente com 2023.  
 
+
+```{r fig.align = 'center',  fig.height= 4, fig.width=10, out.width = "80%"}
+
+titulo <- glue("Evolução das Mortes no Trânsito nos Últimos 2 anos, Mês a Mês \n <b style='color:#183047;'>2023</b> e <b style='color:#56B1F7;'>2024</b>")
+
+# base de dados para o gráfico
+dados_filtrados_1 <- dados_filtrados %>% 
+  group_by(Ano, Mes) %>% 
+  tally() %>% 
+  left_join(top3_distritos, by = "Ano") %>% 
+  filter(Ano == 2023 | Ano == 2024)
+
+
+# Criar o gráfico interativo com Plotly
+grafico_interativo <- ggplot(dados_filtrados_1, aes(x = Mes, y = n, color = Ano, group = Ano, text = paste0(
+  "Mes: ", Mes, "<br>",
+  "Ano: ", Ano, "<br>",
+  "Mortes: ", n, "<br>"
+))) +
+  geom_line() +
+  geom_point(size = 4, alpha = 0.7) +
+  MetBrewer::scale_fill_met_d("Redon", direction=1)+
+  labs(title = titulo,
+       x = "",
+       y = "") +
+#  scale_x_continuous(breaks = seq(2015, 2024, 1)) +  # Garante que todos os anos aparecem
+  theme_minimal() +
+  geom_label(aes(label = n), vjust = -0.5, fill = "white", color = "black", family = "Lora", size = 4)+
+  theme(plot.title = element_text(family = "Lora", size = 10, face = "bold", hjust = 0.5, colour = "black"),
+        plot.subtitle = element_text(family = "Lora", size = 14, hjust = 0.5, colour = "gray30"),
+        text = element_text(family = "Lora"),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        legend.position = "none")
+
+# Converter para Plotly para adicionar interatividade
+grafico_interativo_plotly <- ggplotly(grafico_interativo, tooltip = "text")
+
+# Exibir o gráfico interativo
+grafico_interativo_plotly
+
+```
+
+
+
+O gráfico abaixo também apresenta uma série histórica mas com a evolução das mortes por meio de locomoção da vítima. O que mais chama atenção neste gráfico é que, se até 2019 os pedestres eram as principais vítimas do transito na cidade, esse cenário mudou e os motociclistas assumiram essa posição. Desde 2020 o número de óbitos de motociclistas apenas aumentou, alcançando o patamar mais alto em 2024, com **496 óbitos**, um aumento de **38%** em relação a 2015.  
+
+É alarmante também que as vítimas pedestres, apesar de decaírem em 2020, prrovavelmente devido a pandemia de Covid-19, também só aumentaram desde 2021. Desde então Presenciamos um aumento de **42%** em 2022 em relação a 2021, e esse números continuaram crescendo, em 2023 foram **12%** a mais e em 2024 **7%** a mais que no ano anterior. Os anos com mais mortes de pedestres foram: 2015 com **468** óbitos, 2016 com **406** óbitos e 2024 com **405**. Se comprado a 2015, em 2024 as mortes dimiuíram em **13%**. 
+
+As mortes de ocupantes de automóveis vinha caindo de forma expressiva desde 2015 até voltarem a crescer em 2018 e estacionarem em números homogêneos até um crescimento de **19%** em 2023 e uma queda de **12%** em 2024. Se comprado a 2015, em 2024 as mortes dimiuíram em **40%**. 
+
+As mortes de ciclistas também caíram de forma expressiva entre 2017 e 2018 (**35%**), continuaram subindo até 2021, quando caíram novamente **21%** e voltam a crescer alcançando o maior patamar da série histórica em 2024, um aumento de **64%** em relação a 2015. 
+
+As mortes de ocupantes de caminhão vinham caindo consistentemente desde 2015, quando subiu drasticamente em 2019 (**2** para 14 mortes entre 2018 e 2019), e desde 2022 vem subindo novamente, 2024 alcançou o patamar mais alto desde 2015, com **17** mortes. 
+
+Por fim, o meio de transporte menos letal, o ônibus, desde uma subida nos números em 2017, tem se apresentado relativamente estacionário, se comparado a 2015 em 2024 tivemos uma diminuição nas mortes em **25%**. 
 
 
 ```{r fig.align = 'center',  fig.height= 4, fig.width=10, out.width = "80%"}
@@ -587,6 +656,9 @@ grafico_interativo_plotly
 
 
 ```
+
+
+O gráfico abaixo mostra os mesmo dados do gráfico anterior mas nele podemos enxergar melhor as diferenças proporcionais entre a quantidade de mortes de cada meio de locomoção. A cidade de São Paulo tem sido cada vez mais perigosa para motociclistas e ciclistas, ao passo que mais segura para os ocupantes de automóveis e ônibus. Desde 2021 também têm sido consistentemente mais perigoso ser um pedestre. 
 
 
 ```{r echo=FALSE,  fig.height= 10, fig.width=18, out.width="100%"}
@@ -634,6 +706,16 @@ showtext_opts(dpi = 320)
 ```
 
 
+O gráfico abaixo nos mostra a evolução da quantidade absoluta das mortes no transito em cada macroregião da cidade. A zona leste e a zona sul são as regiões com mais mortes em toda a série histórica. Apesar de números bem próximos, a zona sul têm sido a região mais letal da cidade em quase todos os anos. Chama à atenção também que essa região esteja presenciando a maior súbida initerrupta dos casos desde 2021 logo após uma queda consistente de 2016 a 2021. O volume de óbitos aumentou **35%** em 2022, **15%** em 2023 e **13%** em 2024. Comparativamente com 2015, tivemos um aumento de **12%** nos óbitos da zona sul em 2024. 
+
+Na zona leste, do mesmo modo que na zona sul, os óbitos vinham caindo de forma consistente desde 2015, quando começaram a subir em 2021, para se ter uma ideia os óbitos nessa região subiram **49%** em 2022, o que pode, assim como nas outras regiões, marcar a passagem do período de pandemia para o de abertura do isolamento social na cidade, os anos posteriores tiveram aumentos também mas consideravelmente menores, **3%** em 2023 e **6%** em 2024. Comparativamente com 2015, os óbitos na zona leste diminíram **17%** em 2024. 
+
+A zona norte é terceira região com mais óbitos em termos absolutos. A região também presenciou uma queda nos números entre 2015 e 2017, quando começa a subir até cair novamente durante o periodo da pandemia. Desde 2020 os óbitos tem aumentado de forma consistente, tendo permanecido estável em 2023 até subir **24%** em 2024. Comparativamente com 2015, os óbitos permaneceram estáveis em 2024, tendo caído apenas **0.5%**. 
+
+A zona oeste e o centro têm séries históricas parecidas, acompanharam a tendência geral da cidade de queda nos óbitos entre 2015 e 2017, voltando a subir para novamente cair na época da pandemia. A zona oeste viveu um aumento significativo em 2022 (**70%**), o maior pós pandemia comparativamente com as outras regiões, mas tem caído na quantidade de óbitos mesmo que de forma sutíl, 2023 teve **4%** a menos e 2024  também **4%*** a menos que o ano anterior. Comparativamente com 2015, os óbitos na zona oeste
+diminuíram em **37%**, no centro essa diminuição foi de **60%**. 
+
+
 
 ```{r fig.align = 'center',  fig.height= 4, fig.width=10, out.width = "80%"}
 
@@ -672,6 +754,13 @@ grafico_interativo_plotly
 
 
 ## **Análise por Distrito**
+
+O objetivo desta análise é entender quais são os distritos mais perigosos para pedestres, motociclistas, usuários de automóveis e ciclistas. Para isso estamos comparando os distritos a partir de sua taxa de óbitos, em cada um desses meios de locomoção, por 100 mil habitantes. 
+
+No primeiro mapa é possível verificar que os distritos mais periogosos para pedestres são
+
+
+
 
 ```{r fig.height=9, fig.width=11, include=FALSE, out.width="100%"}
 
@@ -1223,7 +1312,24 @@ htmltools::browsable(
 
 
 
+&nbsp;
+<hr />
+<p style="text-align: center;">
+  <strong>Equipe Técnica:</strong> <br />
+  Hugo Nicolau Barbosa de Gusmão <br />
+  Joaquim Lemos Ornellas <br />
+  Luiza Mayare Reis Soares <br />
+  Robson Cesar Zanovelo <br />
+  Thais Fernandes Pereira
+</p>
 
+<p style="text-align: center;">
+  <span style="color: #2F58A4;">
+    <em>Relatório Executivo <br /> ADE SAMPA - 2025</em>
+  </span>
+</p>
+
+&nbsp;
 
 
 
