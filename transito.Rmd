@@ -83,6 +83,7 @@ library("MetBrewer")
 library("dplyr")
 library("glue")
 library("marquee")
+library("geobr")
 
 ```
 
@@ -95,25 +96,19 @@ library("marquee")
 
 dados <- read_csv("C:/Users/Thais Pereira/Documents/obitos_transito/obitos.csv", locale = locale(encoding = "UTF-8"))
 
+dados_estado <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/obitos_todos.xlsx")
+
 dados_logadouro <- read_csv("C:/Users/Thais Pereira/Documents/obitos_transito/obitos_logadouro.csv", locale = locale(encoding = "UTF-8"))
 
 shp_distritos <- st_read("C:/Users/Thais Pereira/Documents/shapefile/distritos_cnpj_2.shp")
 
 pop <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/pop.xlsx")
 
-```
-
-
-```{r eval=FALSE, include=FALSE}
-
-dados_logadouro %>% 
-  filter(lg_tipo == "AV") %>% 
-  group_by(lg_nome) %>% 
-  tally() %>% 
-  arrange(-n) %>% 
-  view()
+pop_estado <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/pop_estado.xlsx")
 
 ```
+
+
 
 
 
@@ -171,6 +166,182 @@ Tendo em vista a demonstração de preocupação por parte das autoridades feder
 
 
 ## **Estatísticas Gerais**
+
+Mapa das mortes nos municípios do Estado de São Paulo
+
+
+```{r include=FALSE}
+
+# Substituir nomes específicos
+substituicoes <- c(
+  "Santa Barbara D Oeste" = "Santa Barbara dOeste",
+  "Estrela D Oeste" = "Estrela dOeste",
+  "Aparecida D Oeste" = "Aparecida dOeste",
+  "Guarani D Oeste" = "Guarani dOeste",
+  "Sao Joao Do Pau D Alho" = "Sao Joao do Pau dAlho",
+  "Guarani D'oeste" = "Guarani dOeste",
+  "Palmeira D'oeste" = "Palmeira dOeste",
+  "Santa Rita D Oeste" = "Santa Rita dOeste",
+  "Palmeira D Oeste" =	"Palmeira dOeste",		
+  "Sao Luis do Paraitinga" =	"Sao Luiz do Paraitinga",
+  "Santa Clara D Oeste" = "Santa Clara dOeste"
+)
+
+# Download dos Estados e Municípios: 
+
+muni_geobr <- read_municipality(code_muni= 35, year=2020) %>%  as.tibble()
+
+geo_ufs <- read_state(code_state = 35, year = 2020) %>% as.tibble()
+
+pop_estado_1 <- pop_estado %>% 
+  mutate(
+    Município = str_trim(Mun),  
+    Município = stri_trans_general(Município, "Latin-ASCII")) %>%
+  filter(UF == "SP") %>% 
+  select(CodMun,Município, PopMun)
+
+dados_estados_1 <-  dados_estado %>% 
+  mutate(Município = stringr::str_to_title(Município)) %>%
+  mutate(Município = str_replace_all(Município, substituicoes)) %>% 
+  mutate(Município = str_replace_all(Município, "\\b(Do|De|Dos|Das|Da)\\b", tolower)) %>% 
+  mutate(Município = case_when(Município == "Sao Luis do Paraitinga" ~ "Sao Luiz do Paraitinga", TRUE ~ Município)) 
+  
+
+dados_mapa <-  pop_estado_1 %>% 
+  left_join(dados_estados_1, by = "Município") %>% 
+  group_by(CodMun, Município, PopMun) %>% 
+  tally() %>% 
+  mutate(mortes_cem_mil_hab = n/PopMun*100000) %>% 
+  rename(code_muni = CodMun) %>% 
+  left_join(muni_geobr, by = "code_muni") 
+  
+
+# Convertendo dados_mapa para um objeto sf
+
+  dados_mapa_2 <- st_as_sf(dados_mapa)
+  
+ 
+
+```
+
+
+```{r echo=FALSE}
+
+
+# Criar categorias de óbitos por 100 mil habitantes
+dados_mapa_2 <- dados_mapa_2 %>%
+  mutate(
+    group_mortes = cut(mortes_cem_mil_hab, 
+                       breaks = c(27, 100, 200, 300, 500, 1020),  # Ajuste conforme a variação dos dados
+                       include.lowest = TRUE)
+  )
+
+# Criar categorias para o gráfico lateral
+pop_mortes <- dados_mapa_2 %>%
+  st_drop_geometry() %>%
+  group_by(group_mortes) %>%
+  summarise(score = sum(mortes_cem_mil_hab, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(
+    share = score / sum(score) * 100,
+    y_text = if_else(share < 5, share + 3, share - 3),
+    label = paste0(round(share, 1), "%"),
+    data_id = as.character(group_mortes)
+  ) %>%
+  na.omit()
+
+# Criar o mapa interativo
+pmap <- ggplot(dados_mapa_2) +
+  geom_sf_interactive(aes(fill = mortes_cem_mil_hab, geometry = geom, 
+                          data_id = group_mortes, 
+                          tooltip = paste(Município, "<br>Óbitos por 100k:", round(mortes_cem_mil_hab, 1))), 
+                      lwd = 0.1, color = "white") +
+  scale_fill_fermenter(
+    name = "Óbitos por 100k",
+    breaks = c(100, 200, 300, 500, 1020),
+    direction = 1,
+    palette = "Reds"
+  ) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(size = 12, hjust = 0.5)
+  ) +  guides(fill = "none")
+
+pmap <- pmap + 
+  coord_sf(expand = FALSE) + 
+  theme_void() + 
+  theme(
+    plot.margin = unit(c(100, 50, -10, 10), "pt"))
+
+# Criar o gráfico de barras laterais com os percentuais
+x_labels <- c("27-100", "101-200", "201-300", "301-500", "501-1018+")
+
+pcol <- ggplot(pop_mortes, aes(group_mortes, share, fill = group_mortes)) +
+  geom_col_interactive(aes(data_id = data_id, tooltip = paste("Share:", label))) +
+  geom_hline(yintercept = 0) +
+  geom_text_interactive(
+    aes(
+      y = pmin(share + 5, max(share) - 2),  
+      label = label, 
+      color = case_when(
+        group_mortes == "501-1018+" ~ "black",
+        TRUE ~ "white"
+      ), 
+      data_id = data_id
+    ),
+    size = 4, 
+    hjust = -0.1
+  ) +
+  coord_flip() +
+  scale_x_discrete(labels = x_labels) +
+  scale_fill_brewer(palette = "Reds") +
+  scale_color_manual(values = c(rep("black", 4), "white")) +
+  guides(fill = "none", color = "none") +
+  labs(
+    x = NULL,
+    y = NULL
+  ) +
+  theme_void() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.y = element_text(size = 10),
+    axis.text.x = element_blank()
+  )
+
+pcol <- pcol + expand_limits(y = max(pop_mortes$share) + 15)
+
+# Ajustar fonte e evitar cortes no mapa
+ pmap <- pmap + coord_sf(expand = FALSE) +
+  annotate("text", 
+           x = mean(st_bbox(dados_mapa_2)[c("xmin", "xmax")]),  
+           y = st_bbox(dados_mapa_2)["ymax"] + 0.05 * diff(st_bbox(dados_mapa_2)[c("ymin", "ymax")]),  
+            label = "Taxa de mortes por 100k habitantes",
+           hjust = 0.5, vjust = 1, size = 5, fontface = "bold", family = "Lora")
+
+# Combinar o mapa e o gráfico de barras laterais
+p_final <- pmap + inset_element(pcol, left = 0.7, bottom = 0.05, right = 1, top = 0.2)
+
+# Criar um gráfico interativo com ggiraph
+interactive_plot <- girafe(
+  ggobj = p_final,
+  width_svg = 10,  
+  height_svg = 8,
+  options = list(
+    opts_hover(css = "fill:#f58d17;"),
+    opts_hover_inv(css = "opacity:0.5;"),
+    opts_selection(type = "single", only_shiny = FALSE)
+  )
+)
+
+# Exibir o gráfico interativo
+interactive_plot
+
+
+```
+
+
 
 
 Mapas das mortes por distritos 
@@ -757,8 +928,17 @@ grafico_interativo_plotly
 
 O objetivo desta análise é entender quais são os distritos mais perigosos para pedestres, motociclistas, usuários de automóveis e ciclistas. Para isso estamos comparando os distritos a partir de sua taxa de óbitos, em cada um desses meios de locomoção, por 100 mil habitantes. 
 
-No primeiro mapa é possível verificar que os distritos mais periogosos para pedestres são
+No primeiro mapa é possível verificar que os distritos mais periogosos para pedestres (com taxa de mortes entre 41.5 e 227 por 100 mil hab.), classificados no mapa abaixo como 'Alto' risco,  por ordem de taxa de óbitos são: **Sé,	Bom Retiro, Jaguará, Jacanã, República, Brás, Butantã, Pari, Consolação e Santo Amaro**. A Sé se destaca em relação aos outros distritos com uma taxa de 226, para se ter uma ideia o Bom Retiro mesmo ocupando o segundo lugar do ranking tem uma taxa de 110 mortes. De forma geral 
 
+
+```{r eval=FALSE, include=FALSE}
+
+shp_distritos_pedestres %>%  as.data.frame() %>% 
+  filter(group_mortes_pedestres == ("(41.5,227]")) %>% 
+  arrange(-mortes_cem_mil_hab) %>% 
+  distinct(ds_nome)
+
+```
 
 
 
