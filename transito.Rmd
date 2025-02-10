@@ -110,9 +110,6 @@ pop_estado <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/pop_e
 
 
 
-
-
-
 ```{r  include=FALSE}
 
 # Adicionar a fonte do Google Fonts
@@ -134,7 +131,7 @@ dados_filtrados <- dados %>%
 
 dados_locomocao <- dados_filtrados %>%
    dplyr::filter(locomocao != "NAO DISPONIVEL" & locomocao != "OUTROS") %>%
-  dplyr::mutate(locomocao = stringr::str_to_title(locomocao)) %>% 
+   dplyr::mutate(locomocao = stringr::str_to_title(locomocao)) %>% 
    dplyr::group_by(Ano, locomocao) %>%
    dplyr::tally()
 
@@ -168,6 +165,8 @@ Tendo em vista a demonstração de preocupação por parte das autoridades feder
 ## **Estatísticas Gerais**
 
 Mapa das mortes nos municípios do Estado de São Paulo
+
+O Estado de São Paulo tem 645 municípios e para o mapa abaixo fizemos a taxa de mortes no trânsito por 100 mil habitantes para cada uma das cidades, usando toda a série histórica disponibilizada pelo Infosiga, de 2015 a 2024. Como podemos ver no gráfico ao lado do mapa, 8% das cidades tem uma taxa de mortes muito alta sendo Barra do Turvo a cidade com a maior taxa do Estado. São Paulo no entanto, comparativamente aos outros municípios está muito bem posicionado, em termos proporcionais ao tamanho da população. Se fizermos um ranking das cidades por taxa de mortes no transito São Paulo estaria na posição 600, com uma taxa de 80 mortes por 100 mil hab. Apenas 3.8% dos municípios paulistanos tem uma taxa de morte entre 27 e 100 mortes, a cidade com a menor taxa é Rio Grande Da Serra.    
 
 
 ```{r include=FALSE}
@@ -220,7 +219,6 @@ dados_mapa <-  pop_estado_1 %>%
 
   dados_mapa_2 <- st_as_sf(dados_mapa)
   
- 
 
 ```
 
@@ -254,7 +252,8 @@ pop_mortes <- dados_mapa_2 %>%
 pmap <- ggplot(dados_mapa_2) +
   geom_sf_interactive(aes(fill = mortes_cem_mil_hab, geometry = geom, 
                           data_id = group_mortes, 
-                          tooltip = paste(Município, "<br>Óbitos por 100k:", round(mortes_cem_mil_hab, 1))), 
+                          tooltip = paste(Município, "<br>Óbitos por 100k:", round(mortes_cem_mil_hab, 1),
+                                          PopMun, "<br>População:")), 
                       lwd = 0.1, color = "white") +
   scale_fill_fermenter(
     name = "Óbitos por 100k",
@@ -340,7 +339,6 @@ interactive_plot
 
 
 ```
-
 
 
 
@@ -928,7 +926,15 @@ grafico_interativo_plotly
 
 O objetivo desta análise é entender quais são os distritos mais perigosos para pedestres, motociclistas, usuários de automóveis e ciclistas. Para isso estamos comparando os distritos a partir de sua taxa de óbitos, em cada um desses meios de locomoção, por 100 mil habitantes. 
 
-No primeiro mapa é possível verificar que os distritos mais periogosos para pedestres (com taxa de mortes entre 41.5 e 227 por 100 mil hab.), classificados no mapa abaixo como 'Alto' risco,  por ordem de taxa de óbitos são: **Sé,	Bom Retiro, Jaguará, Jacanã, República, Brás, Butantã, Pari, Consolação e Santo Amaro**. A Sé se destaca em relação aos outros distritos com uma taxa de 226, para se ter uma ideia o Bom Retiro mesmo ocupando o segundo lugar do ranking tem uma taxa de 110 mortes. De forma geral 
+No primeiro mapa é possível verificar que os distritos mais periogosos para pedestres (com taxa de mortes entre **41.5** e **227** por 100 mil hab.), classificados no mapa abaixo como 'Alto' risco,  por ordem de taxa de óbitos são: **Sé,	Bom Retiro, Jaguará, Jacanã, República, Brás, Butantã, Pari, Consolação e Santo Amaro**. A Sé se destaca em relação aos outros distritos com uma taxa de 226, para se ter uma ideia o Bom Retiro mesmo ocupando o segundo lugar do ranking tem uma taxa de 110 mortes. De forma geral os distritos mais periodos para pedestres estão em sua maioria no centro da cidade.
+
+No segundo mapa temos os distritos mais periogosos para motociclistas (com taxa de mortes entre **44.8** e **113** por 100 mil hab.), classificados no mapa abaixo como 'Alto' risco,  por ordem de taxa de óbitos são: **Jaguará, Socorro, Santo Amaro, Anhanguera, Butantã, Pari, Bom Retiro, Morumbi, Sé, Perus**. A zona oeste se destaca com três distritos no ranking de Alto risco, a zona leste por outro lado conta com apenas 1 distrito. 
+
+
+No terceiro mapa temos os distritos mais periogosos para condutores de automóveis (com taxa de mortes entre **16.7** e **36.4** por 100 mil hab.), classificados no mapa abaixo como 'Alto' risco, por ordem de taxa de óbitos são: **Jaguará, Santo Amaro, Butantã, Jaguaré, Perus, Morumbi, Jaçanã, Belem, Vila Leopoldina, Tatuapé, Parque Do Carmo, Anhanguera, Cangaiba, Penha, Alto De Pinheiros, Socorro, Campo Belo, Barra Funda, Bom Retiro, Se **.  Das 20 cidades com taxas de Alto Risco, 6 são da zona oeste, 5 da zona norte, 4 são da leste, 3 da zona sul e 2 do centro de São Paulo. 
+
+No quarto mapa temos os distritos mais periogosos para ciclistas (com taxa de mortes entre **4.45** e **12.9** por 100 mil hab.), classificados no mapa abaixo como 'Alto' risco, por ordem de taxa de óbitos são: **Brás, Jaguará, Jaçanã, Barra Funda, Sé, Anhanguera, Vila Maria, Bom Retiro, Butantã, Pari, Belém, Socorro, Cangaiba, Mooca, São Miguel, Jardim Paulista, Cachoeirinha, Pinheiros, Tremembe**.  Das 19 cidades com taxas de Alto Risco, 6 são da zona leste,  5 da zona norte, 5 são da zona oeste, 2 no centro e 1 na zona sul. 
+
 
 
 ```{r eval=FALSE, include=FALSE}
