@@ -15,7 +15,7 @@ h1.title{
 
 h2 {
   font-family: 'Lora', serif;
-  font-size: 15px;
+  font-size: 17px;
   text-align: justify;
 }
 
@@ -38,7 +38,7 @@ h4.date{
 p{
   font-family: 'Lora', serif;
   text-align: justify;
-  font-size: 13px
+  font-size: 14px
 }
 
 h1, .h1, h2, .h2, h3, .h3 , h4, .h4, h5, .h5, h6, .h6, h7, .h7, h8, .h8 {
