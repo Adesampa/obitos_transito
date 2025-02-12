@@ -106,8 +106,11 @@ pop <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/pop.xlsx")
 
 pop_estado <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/pop_estado.xlsx")
 
+pop_estado_2 <- read_excel("C:/Users/Thais Pereira/Documents/obitos_transito/pop_estado.xlsx", sheet = 2)
 
 ```
+
+
 ```{r  include=FALSE}
 
 # Adicionar a fonte do Google Fonts
@@ -339,8 +342,6 @@ interactive_plot
 
 ```
 
-
-
 Mapas das mortes por distritos 
 
 Os mapas apresentados abaixo mostram a distribuição das mortes no trânsito na cidade de São Paulo, destacando tanto os números absolutos quanto a taxa de óbitos por 100 mil habitantes. Tendo como base que segundo o IBGE São Paulo contava em 2022 com 11.451.999 habitantes, e entre 2015 e 2024 a cidade somou um total de **9.216** mortes no trânsito, temos uma taxa geral de **80,7** mortes para cada 100 mil habitantes. Em termos absolutos, os distritos com maior número de óbitos foram Jardim **Jardim Sao Luis (231)**, **Grajaú (229)** e **Cidade Dutra (196)**, enquanto os que registraram menos mortes foram **Marsilac (4)**, **Perdizes (21)** e **Bela Vista (26)**.
@@ -348,7 +349,6 @@ Os mapas apresentados abaixo mostram a distribuição das mortes no trânsito na
 Quando analisamos os piores distritos em termos de taxa de mortalidade proporcional à população, os destaques negativos são **Sé (314 mortes por 100 mil habitantes)**, **Jaguará (287)** e **Butantã (201)**, enquanto os distritos com menor impacto proporcional foram **Perdizes (20)**, **Jardim Helena (27)** e **Cidade Líder (33)**. 
 
 Um adendo a utilização da base de dados do Infogsiga é que para 983 mortes não foi possível encontrar o distrito de acontecimento do acidente, ou por falta de informações de latitude e longitude ou por imprecisão do dado, no entanto somamos esses casos para as estatísticas gerais. 
-
 
 
 ```{r include=FALSE}
@@ -675,7 +675,43 @@ dados_filtrados %>%
 
 ## **Mortes ao longo do Tempo**
 
-O gráfico abaixo mostra a série história da quantidade absoluta de óbitos no trânsito de 2015 a 2024. Como podemos ver, os números estavam numa tendência de queda entre **2015 (1131)**, **2016 (976)** e **2017 (886)**, estancionando em 2018 com **895** óbitos e voltando a cair novamente em 2019 com o saldo de **860** óbitos. A queda drástica nas mortes em 2020 e 2021 podem estar associadas a pandemia de Covid-19, o isolamento social e adoção de teletrabalho em muitos setores, mas voltam a subir em 2022, **24%** a mais em relação a 2021, depois **7%** a mais em 2023 e finalmente **10%** a mais em 2024, o maior número desde 2016. Voltamos a patamares muito próximos de 2015, uma diferença de **3%** a menos, apenas. 
+O gráfico abaixo mostra a evolução da taxa de mortes no trânsito por 100 mil habitantes nos últimos dez anos no município de São Paulo. Para essa estatística e as demais estamos utilizando a Data do Sinistro presente nos dados do Infosiga, e as estimativas de tamanho da população produzidas anualmente pelo IBGE, como não tivemos estimativa para 2023 utilizou-se o dado do censo de 2022. 
+
+
+```{r  out.width = "75%"}
+
+dados_filtrados_taxa <- dados_filtrados %>% 
+  group_by(Ano) %>% 
+  tally() %>% 
+  left_join(pop_estado_2, by = "Ano") %>% 
+  mutate(mortes_cem_mil_hab = round(n/PopMun*100000, 2))
+
+ggplot(dados_filtrados_taxa, aes(x = Ano, y = mortes_cem_mil_hab, group = 1, text = paste0(
+  "Ano: ", Ano, "<br>",
+  "Taxa: ", mortes_cem_mil_hab, "<br>"
+))) +
+  geom_line(color = "#f86254", size = 1) +
+  geom_point(color = "#f86254", size = 5, alpha = 0.5) +
+  labs(title = "Evolução da Taxa de Mortes no Trânsito por 100k hab.",
+       x = "",
+       y = "") +
+  scale_x_continuous(breaks = seq(2015, 2024, 1)) + 
+  theme_minimal() +
+  geom_text(aes(label = round(mortes_cem_mil_hab, 2)), vjust = -0.6, fill = "white", color = "black", family = "Lora", size = 8)+
+  theme(plot.title = element_text(family = "Lora", size = 22, face = "bold", hjust = 0.5, colour = "black"),
+        text = element_text(family = "Lora"),
+        axis.text = element_blank(),
+        axis.text.x = element_text(size = 20),
+        legend.position = "none")
+
+
+
+
+```
+
+
+
+O gráfico abaixo mostra a série história da quantidade absoluta de óbitos no trânsito de 2015 a 2024. Como podemos ver, os números estavam numa tendência de queda entre **2015 (1131)**, **2016 (976)** e **2017 (886)**, estacionando em 2018 com **895** óbitos e voltando a cair novamente em 2019 com o saldo de **860** óbitos. A queda drástica nas mortes em 2020 e 2021 podem estar associadas a pandemia de Covid-19, o isolamento social e adoção de teletrabalho em muitos setores, mas voltam a subir em 2022, **24%** a mais em relação a 2021, depois **7%** a mais em 2023 e finalmente **10%** a mais em 2024, o maior número desde 2016. Voltamos a patamares muito próximos de 2015, uma diferença de **3%** a menos, apenas. 
 
 O gráfico também mostra os três distritos com mais óbitos em cada ano, dos 14 distritos que aparecem nessa estatística, 8 são da zona sul (Grajau, Jardim Angela, Capao Redondo, Jardim Sao Luis, Cidade Ademar, Campo Limpo, Cidade Dutra, Parelheiros), 3 da zona norte (Jaraguá, Pirituba, Jaçanã) e 3 da zona leste (Sapopemba, Itaquera, Cangaíba). Durante os dez anos da série histórica o distrito do Grajau apareceu em 7 deles no topo do ranking, 2015, 2016, 2017 e 2019, voltando a patamares semelhantes nos últimos 3 anos (2022, 2023 e 2024). Lembrando que o grajau também é o distrito com maior população na cidade de São Paulo (384.873 habitantes segundo censo de 2022). Para efeito de comparação o distrito do Jardim Angela, apesar de população parecida (311.432) só apareceu entre os três distritos com mais óbitos em 2016. 
 
@@ -709,7 +745,6 @@ grafico_interativo <- ggplot(dados_filtrados_1, aes(x = Ano, y = n, text = paste
   geom_line(color = "#f86254") +
   geom_point(color = "#f86254", size = 4, alpha = 0.7) +
   labs(title = "Evolução das Mortes no Trânsito",
-       subtitle = "Número absoluto de óbitos no trânsito de 2015 a 2024",
        x = "",
        y = "") +
   scale_x_continuous(breaks = seq(2015, 2024, 1)) +  # Garante que todos os anos aparecem
