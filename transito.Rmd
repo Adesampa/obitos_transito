@@ -1573,7 +1573,7 @@ dados_filtrados %>%
 
 Outro Veículo Envolido no Acidente
 
-Na tabela abaixo fizemos uma análise do outro veículo envolvido no acidente que causou a morte no trânsito. Assim como na tabela anterior também desconsideramos as linhas com ausência de informações, outros e não disponível. Como podemos ver, o automóvel é quase sempre o envolvido no acidente que causou morte, com exceção dos casos em que a vítima estava em um caminhão. Também fizemos um ranking dos 'outros veículos' mais frequentes em acidentes que causaram mortes, o automóvel aparece em **50%** dos casos seguido dos ônibus com **19%** , seguido da motocicleta com **16%** dos casos e o caminhão em quarto lugar com **13%**. Ciclistas e pedestres aparecem com menos de **1%** cada. 
+Na tabela abaixo fizemos uma análise do outro veículo envolvido no acidente que causou a morte no trânsito. Assim como na tabela anterior também desconsideramos as linhas com ausência de informações, outros e não disponível. Como podemos ver, o automóvel é quase sempre o envolvido no acidente que causou morte, com exceção dos casos em que a vítima estava em um caminhão. Também fizemos um ranking dos 'outros veículos' mais frequentes em acidentes que causaram mortes, o automóvel aparece em **50%** dos casos seguido dos ônibus com **19%**, seguido da motocicleta com **16%** dos casos e o caminhão em quarto lugar com **13%**. Ciclistas e pedestres aparecem com menos de **1%** cada. 
 
 ```{r}
 
