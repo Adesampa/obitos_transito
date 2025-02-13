@@ -1514,6 +1514,115 @@ htmltools::browsable(
 ```
 
 
+## **Características dos Acidentes**
+
+
+Tipo de Sinistro mais Frequente
+
+Na tabela abaixo tentamos entender o tipo de acidente mais frequente para cada meio de locomoção da vítima e o percentual de vezes em que esse tipo de acidente acontece. Para essa análise excluímos os óbitos sem essa informação e também os que estavam constando como Outros ou Não Disponível.Como podemos ver na tabela pesdestres morrem atropelados e usuários de automóveis e motociclistas morrem mais por choque. Também olhamos a frequência em que cada um desses tipos de sinistro mais ocorrem, os atropelamentos são **51%** dos acidentes que geram mortes, seguido de choque com **18%** e tombamento com **8%**. 
+
+```{r}
+
+dados_filtrados %>% 
+  filter(!is.na(`Tipo de Sinistro`)) %>% 
+  filter(`Tipo de Sinistro` != "OUTROS" ) %>% 
+  filter(locomocao != "OUTROS" & locomocao != "NAO DISPONIVEL") %>% 
+  group_by(locomocao, `Tipo de Sinistro`) %>% 
+  tally() %>% 
+  mutate(Percentual = n/ sum(n)) %>% 
+  arrange(locomocao, desc(n)) %>% 
+  group_by(locomocao) %>%
+  slice_max(order_by = n, n = 1) %>%  
+  select(locomocao, Percentual, `Tipo de Sinistro`) %>% 
+  mutate(`Tipo de Sinistro` = stringr::str_to_title(`Tipo de Sinistro`), 
+         locomocao = stringr::str_to_title(locomocao)) %>% 
+  reactable(
+      fullWidth = FALSE,
+      defaultPageSize = 10,
+      searchable = FALSE,
+      outlined = TRUE, 
+      showPageInfo = TRUE, 
+      showPageSizeOptions = TRUE,
+      defaultColDef = colDef(
+      align = "center",
+      headerStyle = list(background = "#D6DEEF")),
+      columns = list(
+      locomocao = colDef("Locomoção da Vítima", minWidth = 100, align = "left"),
+      Percentual = colDef("Percentual de Frequência" , format = colFormat(percent = TRUE, digits = 1), minWidth = 140),
+      `Tipo de Sinistro` = colDef("Tipo de Sinistro mais Frequente", minWidth = 140, align = "center"),
+      bordered = TRUE, striped = FALSE, highlight = TRUE))
+
+
+```
+
+
+```{r eval=FALSE, include=FALSE}
+
+
+dados_filtrados %>% 
+  filter(!is.na(`Tipo de Sinistro`)) %>% 
+  filter(`Tipo de Sinistro` != "OUTROS") %>% 
+  mutate(`Tipo de Sinistro` = stringr::str_to_title(`Tipo de Sinistro`)) %>%
+  group_by(`Tipo de Sinistro`) %>% 
+  tally() %>% 
+  mutate(pct = n / sum(n)*100)
+
+  
+
+```
+
+Outro Veículo Envolido no Acidente
+
+Na tabela abaixo fizemos uma análise do outro veículo envolvido no acidente que causou a morte no trânsito. Assim como na tabela anterior também desconsideramos as linhas com ausência de informações, outros e não disponível. Como podemos ver, o automóvel é quase sempre o envolvido no acidente que causou morte, com exceção dos casos em que a vítima estava em um caminhão. Também fizemos um ranking dos 'outros veículos' mais frequentes em acidentes que causaram mortes, o automóvel aparece em **50%** dos casos seguido dos ônibus com **19%** , seguido da motocicleta com **16%** dos casos e o caminhão em quarto lugar com **13%**. Ciclistas e pedestres aparecem com menos de **1%** cada. 
+
+```{r}
+
+dados_filtrados %>% 
+  filter(!is.na(`Tipo de Sinistro`)) %>% 
+  filter(`Outro Veículo Envolvido` != "OUTROS", `Outro Veículo Envolvido` != "NAO DISPONIVEL") %>% 
+  filter(locomocao != "OUTROS" & locomocao != "NAO DISPONIVEL") %>% 
+  group_by(locomocao, `Outro Veículo Envolvido`) %>% 
+  tally() %>% 
+  mutate(Percentual = n/ sum(n)) %>% 
+  arrange(locomocao, desc(n)) %>%
+  group_by(locomocao) %>%
+  slice_max(order_by = n, n = 1) %>% 
+  select(locomocao, Percentual, `Outro Veículo Envolvido`) %>% 
+  mutate(`Outro Veículo Envolvido` = stringr::str_to_title(`Outro Veículo Envolvido`), 
+         locomocao = stringr::str_to_title(locomocao)) %>% 
+    reactable(
+      fullWidth = FALSE,
+      defaultPageSize = 10,
+      searchable = FALSE,
+      outlined = TRUE, 
+      showPageInfo = TRUE, 
+      showPageSizeOptions = TRUE,
+      defaultColDef = colDef(
+      align = "center",
+      headerStyle = list(background = "#D6DEEF")),
+      columns = list(
+      locomocao = colDef("Locomoção da Vítima", minWidth = 100, align = "left"),
+      Percentual = colDef("Percentual de Frequência" , format = colFormat(percent = TRUE, digits = 1), minWidth = 140),
+      `Outro Veículo Envolvido` = colDef("Outro Veículo Envolvido mais Frequente", minWidth = 150, align = "center"),
+      bordered = TRUE, striped = FALSE, highlight = TRUE))
+  
+
+```
+
+
+```{r eval=FALSE, include=FALSE}
+
+dados_filtrados %>% 
+  filter(!is.na(`Outro Veículo Envolvido`)) %>% 
+  filter(`Outro Veículo Envolvido` != "OUTROS", `Outro Veículo Envolvido` != "NAO DISPONIVEL") %>%  
+  group_by(`Outro Veículo Envolvido`) %>% 
+  tally() %>% 
+  arrange(-n) %>% 
+  mutate(pct = n/sum(n)*100) 
+
+```
+
+
 ## **Avenidas com mais mortes**
 
 Descendo um pouco mais o nível da análise fizemos um ranking das avenidas pela quantidade total de mortes na última década. A Av. Senador Teotônio Vilela está no topo da lista apesar de não ser uma das maiores em extensão, já que possui cerca de 10 km, essa avenida inicia-se na Av. Interlagos (o 9° lugar no ranking), interliga Socorro e Cidade Dutra, e termina no distrito de Parelheiros. Ela se destaca com **27%** a mais de mortes do que a Av. Aricanduva, que aparece em segundo lugar, e **39%** a mais que a a Jacú Pêssego em 3° lugar, confirmando como demonstrado nas outras análises, a primazia da zona sul como a região com trânsito mais perigoso de São Paulo. 
@@ -1577,6 +1686,8 @@ Ainda analisando séries históricas, o recorte de mortes por meio de locomoçã
 Divindindo a cidade em macroregiões (norte, sul, leste, oeste e centro) para analisar o número absoluto de mortes nos últimos dez anos é clara a deterioraçǎo do trânsito na zona sul da cidade. Esta é, não apenas a zona com mais mortes, como também a única em que as mortes aumentaram em 2024 em relação a 2015, cerca de 12% de aumento, e esse aumento não é pontual, as mortes vem aumentando desde 2021 de forma consistente. O destaque de melhora no volume de mortes é para a região central, que apresentou queda de 60% em 2024 em relação a 2015. 
 
 Também analisamos os distritos mais perigosos para pedestres, motociclistas, usuários de automóveis e ciclistas, a partir da taxa de mortos por 100 mil habitantes. Alguns pontos relevantes dessa análise é que a Sé é uma região muito perigosa para os pedestres, de forma bem desproporcional em relação aos outros distritos, Jaraguá segue sendo o distrito mais periogoso para motociclistas e usuários de automóveis enquando o Brás é o distrito mais periogoso para os ciclistas. 
+
+Na análise a respeito das cartacterísticas dos acidentes olhamos para dois aspectos, o tipo de acidente mais frequente e os veículos mais frequentemente envolvidos no acidente. Enquanto automóveis, motocicletas e ônibus sofrem mais com o choque, pedestres são atropelados, ciclistas sofrem mais com tombamento e caminhões com colisão traseira. E como já era esperado o automóvel está envolvido na maior parte dos acidentes, independente do meio de locomoção da vítima, exceto no caso de caminhões. 
 
 Por fim, a análise das avenidas com mais mortes confirmou a zona sul como a mais letal, mostrando a Av. Senador Teotônio Vilela como grande fonte de mortes principalmente para motociclistas e pedestres nos últimos dez anos. 
 
