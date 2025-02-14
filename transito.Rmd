@@ -675,10 +675,100 @@ dados_filtrados %>%
 
 ## **Mortes ao longo do Tempo**
 
-O gráfico abaixo mostra a evolução da taxa de mortes no trânsito por 100 mil habitantes nos últimos dez anos no município de São Paulo. Para essa estatística e as demais estamos utilizando a Data do Sinistro presente nos dados do Infosiga, e as estimativas de tamanho da população produzidas anualmente pelo IBGE, como não tivemos estimativa para 2023 utilizou-se o dado do censo de 2022. 
+O gráfico abaixo mostra a evolução da taxa de mortes no trânsito por 100 mil habitantes nos últimos dez anos no município de São Paulo. Para essa estatística e as demais estamos utilizando a Data do Sinistro presente nos dados do Infosiga, e as estimativas de tamanho da população produzidas anualmente pelo IBGE, como não tivemos estimativa para 2023 utilizou-se o dado do censo de 2022. Ao passar o mouse pelos pontos do gráfico é possível ver a taxa discriminada por meios de locomoção da vítima. 
 
 
-```{r  out.width = "75%"}
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, out.extra='style="float: left;"'}
+
+library(ggiraph)
+library(gdtools)
+
+
+# 🔹 Garantir que a fonte "Lora" seja reconhecida
+invisible(gdtools::register_gfont("Lora"))
+
+# 🔹 Garantir que cada ano tenha um único valor de PopMun
+pop_estado_2 <- pop_estado_2 %>%
+  group_by(Ano) %>%
+  summarise(PopMun = max(PopMun), .groups = "drop")
+
+# Calcular a taxa geral de mortes por ano
+dados_taxa_geral <- dados_filtrados %>%
+  group_by(Ano) %>%
+  tally() %>%
+  left_join(pop_estado_2, by = "Ano") %>%
+  mutate(mortes_cem_mil_hab = round(n / PopMun * 100000, 2)) %>%
+  ungroup()
+
+# Calcular a taxa de mortes separada por meio de locomoção (para o tooltip)
+dados_taxa_locomocao <- dados_filtrados %>%
+  group_by(Ano, locomocao) %>%
+  tally() %>%
+  left_join(pop_estado_2, by = "Ano") %>%
+  mutate(mortes_cem_mil_hab = round(n / PopMun * 100000, 2)) %>%
+  ungroup()
+
+# Criar um tooltip formatado com a taxa por meio de locomoção
+tooltip_data <- dados_taxa_locomocao %>%
+  group_by(Ano) %>%
+  summarise(tooltip_text = paste0(
+    "<b>Ano: ", Ano, "</b><br>",
+    paste0(locomocao, ": ", mortes_cem_mil_hab, collapse = "<br>")
+  ), .groups = "drop")
+
+# Unir os tooltips ao dataframe principal
+dados_interativo <- dados_taxa_geral %>%
+  left_join(tooltip_data, by = "Ano")
+
+# Criar gráfico interativo com ggiraph
+grafico_interativo <- ggplot(dados_interativo, aes(
+    x = Ano, 
+    y = mortes_cem_mil_hab, 
+    group = 1,
+    tooltip = tooltip_text,  # 🔹 Tooltip mostra os valores detalhados
+    data_id = Ano  # 🔹 Destaca apenas o ano atual
+  )) +
+  geom_line_interactive(color = "#f86254", size = 1) +  # Linha interativa
+  geom_point_interactive(color = "#f86254", size = 3, alpha = 0.8) +  # Pontos interativos
+  geom_text_interactive(
+    aes(label = mortes_cem_mil_hab, tooltip = " "),  # 🔹 Remove tooltip do rótulo
+    vjust = -0.4,  # 🔹 Ajusta a posição do rótulo acima do ponto
+    size = 3.5, 
+    color = "black",
+    family = "Lora"
+  ) +
+  labs(title = "Evolução da Taxa de Mortes no Trânsito por 100k hab.",
+       x = "",
+       y = "") +
+  scale_x_continuous(breaks = seq(2015, 2024, 1)) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(family = "Lora", size = 11, face = "bold", hjust = 0.5, colour = "black"),
+    text = element_text(family = "Lora"),
+    axis.text = element_text(size = 12),
+    axis.text.x = element_text(size = 11),
+    legend.position = "none"
+  )
+
+# Converter para objeto interativo com ggiraph
+girafe(
+  ggobj = grafico_interativo, 
+  width_svg = 6, height_svg = 4,
+  options = list(
+    opts_hover(css = "fill:#f58d17;"),
+    opts_hover_inv(css = "opacity:0.5;"),
+    opts_sizing(rescale = FALSE, width = 0.8)  # 🔹 Reduz o tamanho no HTML
+  )
+)
+
+
+
+
+```
+
+
+
+```{r eval=FALSE, include=FALSE, out.width="75%"}
 
 dados_filtrados_taxa <- dados_filtrados %>% 
   group_by(Ano) %>% 
